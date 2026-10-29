@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Chobi
+GenericName=Video Player
+Comment=Lightweight video player
+Comment[bn]=হালকা ভিডিও প্লেয়ার
+Exec=chobi -- %U
+Icon=io.github.dev_taosif_net.Chobi
+Terminal=false
+Categories=AudioVideo;Video;Player;Qt;
+Keywords=video;movie;player;subtitles;mkv;mp4;
+StartupWMClass=chobi
+MimeType=application/ogg;application/mxf;application/vnd.rn-realmedia;application/vnd.rn-realmedia-vbr;application/x-matroska;application/x-ogm-video;video/3gp;video/3gpp;video/3gpp2;video/avi;video/divx;video/dv;video/flv;video/mkv;video/mp2t;video/mp4;video/mp4v-es;video/mpeg;video/msvideo;video/ogg;video/quicktime;video/vnd.avi;video/vnd.divx;video/vnd.rn-realvideo;video/webm;video/x-avi;video/x-flv;video/x-m4v;video/x-matroska;video/x-mpeg2;video/x-ms-asf;video/x-ms-wmv;video/x-msvideo;video/x-ogm+ogg;video/x-theora+ogg;

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.dev_taosif_net.Chobi</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Chobi</name>
+  <summary>Lightweight video player</summary>
+  <description>
+    <p>
+      Chobi is a fast, minimal video player for Linux and Windows built on libmpv and Qt.
+      It plays practically every video format FFmpeg can decode, finds matching subtitle
+      files automatically (including Bangla), and switches audio tracks without restarting.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.dev_taosif_net.Chobi.desktop</launchable>
+  <url type="homepage">https://github.com/dev-taosif-net/chobi</url>
+  <url type="bugtracker">https://github.com/dev-taosif-net/chobi/issues</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-10-29"/>
+  </releases>
+</component>

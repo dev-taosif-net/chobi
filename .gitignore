@@ -1,0 +1,19 @@
+# Build trees
+/build*/
+/out/
+/dist/
+CMakeUserPresets.json
+compile_commands.json
+
+# Generated test media
+/tests/fixtures/out/
+
+# Benchmark output
+/bench/results/raw/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
