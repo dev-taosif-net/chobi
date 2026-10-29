@@ -13,9 +13,13 @@ build="${1:?usage: make-portable.sh BUILD_DIR DEST_DIR}"
 dest="${2:?usage: make-portable.sh BUILD_DIR DEST_DIR}"
 prefix="${MINGW_PREFIX:-/ucrt64}"
 
+exe="$(find "$build" -name chobi.exe -not -path '*/CMakeFiles/*' | head -1)"
+[[ -n "$exe" ]] || { echo "chobi.exe not found under $build" >&2; exit 1; }
+echo "using $exe"
+
 rm -rf "$dest"
 mkdir -p "$dest"
-cp "$build/src/chobi.exe" "$dest/"
+cp "$exe" "$dest/"
 
 plugins="$(qtpaths6 --query QT_INSTALL_PLUGINS 2>/dev/null || true)"
 [[ -z "$plugins" ]] && plugins="$prefix/share/qt6/plugins"

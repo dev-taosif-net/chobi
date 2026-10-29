@@ -37,7 +37,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config git ca-certificates \
             qt6-base-dev libmpv-dev ffmpeg fonts-noto-core
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Configure
         run: >
           cmake -S . -B build -G Ninja
@@ -58,7 +58,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
