@@ -6,6 +6,8 @@ and versions follow [Semantic Versioning](https://semver.org). `scripts/release.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-29
+
 ### Added
 - **Automatic updates.** Chobi checks GitHub once a day for a new release (can be turned off in
   Settings, or "Check now"). Update information is signed with the project's Ed25519 key and
