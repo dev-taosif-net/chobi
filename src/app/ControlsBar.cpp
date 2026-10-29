@@ -57,6 +57,8 @@ ControlsBar::ControlsBar(QWidget* parent) : QWidget(parent) {
   speedButton_ = makeButton(this, tr("Playback speed"));
   speedButton_->setPopupMode(QToolButton::InstantPopup);
   fullscreenButton_ = makeButton(this, tr("Fullscreen (F)"));
+  settingsButton_ = makeButton(this, tr("Settings"));
+  settingsButton_->setText(QString(QChar(0x2699)));  // ⚙
 
   auto* layout = new QHBoxLayout(this);
   layout->setContentsMargins(8, 4, 8, 4);
@@ -72,10 +74,12 @@ ControlsBar::ControlsBar(QWidget* parent) : QWidget(parent) {
   layout->addWidget(subtitleButton_);
   layout->addWidget(speedButton_);
   layout->addWidget(fullscreenButton_);
+  layout->addWidget(settingsButton_);
 
   connect(playButton_, &QToolButton::clicked, this, &ControlsBar::playPauseClicked);
   connect(muteButton_, &QToolButton::clicked, this, &ControlsBar::muteClicked);
   connect(fullscreenButton_, &QToolButton::clicked, this, &ControlsBar::fullscreenClicked);
+  connect(settingsButton_, &QToolButton::clicked, this, &ControlsBar::settingsClicked);
   connect(seekSlider_, &SeekSlider::seekRequested, this, &ControlsBar::seekRequested);
   connect(volumeSlider_, &QSlider::valueChanged, this,
           [this](int v) { emit volumeRequested(v); });

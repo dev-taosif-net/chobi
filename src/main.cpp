@@ -15,6 +15,7 @@
 #include "app/Bench.h"
 #include "app/MainWindow.h"
 #include "app/ResumeService.h"
+#include "app/Settings.h"
 #include "core/Language.h"
 #include "engine/MpvEngine.h"
 #include "engine/MpvVideoWidget.h"
@@ -98,7 +99,14 @@ int main(int argc, char* argv[]) {
   }
 
   const std::vector<std::string> languages = preferredLanguages();
+  // One small INI read at startup; every later write happens on the thread pool.
+  auto settingsStore = std::make_shared<chobi::SettingsStore>(
+      QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) +
+      QStringLiteral("/settings.ini"));
+  const chobi::AppSettings settings = settingsStore->load();
+
   chobi::MpvEngine::Options options;
+  options.initialVolume = settings.startupVolume();
   options.fontsDir = bundledFontsDir();
   options.verboseLog = qEnvironmentVariableIntValue("CHOBI_MPV_LOG") == 1;
   for (const std::string& l : languages) options.preferredLanguages << QString::fromStdString(l);
@@ -118,7 +126,7 @@ int main(int argc, char* argv[]) {
   int rc = 0;
   {
     auto* video = new chobi::MpvVideoWidget(engine.get());
-    chobi::MainWindow window(engine.get(), video, resume, languages);
+    chobi::MainWindow window(engine.get(), video, {resume, settingsStore, settings, languages});
 
     if (chobi::bench::enabled()) {
       // Startup timeline for bench/run_bench.py.
@@ -131,8 +139,9 @@ int main(int argc, char* argv[]) {
         if (!*armed) return;
         *armed = false;
         chobi::bench::mark("first-frame-painted");
-        std::fprintf(stderr, "[bench] hwdec %s\n",
-                     engine->state().hwdec.empty() ? "no" : engine->state().hwdec.c_str());
+        std::fprintf(stderr, "[bench] hwdec %s volume %.0f\n",
+                     engine->state().hwdec.empty() ? "no" : engine->state().hwdec.c_str(),
+                     engine->state().volume);
         if (chobi::bench::quitAfterFirstFrame()) QTimer::singleShot(0, qApp, &QApplication::quit);
       });
       QObject::connect(engine.get(), &chobi::PlayerEngine::fileFailed, &window,

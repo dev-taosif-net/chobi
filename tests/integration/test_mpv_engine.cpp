@@ -258,6 +258,24 @@ class MpvEngineTest : public QObject {
     QTRY_VERIFY_WITH_TIMEOUT(engine->state().position > 0.5, 8000);
   }
 
+  void initialVolumeAppliesAndSurvivesFileSwitches() {
+    REQUIRE_FIXTURE("h264_aac.mp4");
+    REQUIRE_FIXTURE("multi_audio.mkv");
+    engine.reset();
+    MpvEngine::Options o;
+    o.headless = true;
+    o.initialVolume = 86;  // the remembered volume from the last session
+    engine = std::make_unique<MpvEngine>(o);
+    QCOMPARE(engine->state().volume, 86.0);
+    QVERIFY(load(fixture("h264_aac.mp4")));
+    QTest::qWait(200);
+    QCOMPARE(engine->state().volume, 86.0);  // mpv agrees after loading
+    engine->setVolume(55);
+    QVERIFY(load(fixture("multi_audio.mkv")));
+    QTest::qWait(200);
+    QCOMPARE(engine->state().volume, 55.0);  // kept when switching videos
+  }
+
   void repeatedFileSwitchingIsStable() {
     REQUIRE_FIXTURE("h264_aac.mp4");
     REQUIRE_FIXTURE("multi_audio.mkv");

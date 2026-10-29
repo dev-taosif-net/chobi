@@ -36,6 +36,7 @@ class ControlsBar final : public QWidget {
   void volumeRequested(double volume);
   void muteClicked();
   void fullscreenClicked();
+  void settingsClicked();
 
  private:
   void updateTimeLabels();
@@ -50,6 +51,7 @@ class ControlsBar final : public QWidget {
   QToolButton* subtitleButton_;
   QToolButton* speedButton_;
   QToolButton* fullscreenButton_;
+  QToolButton* settingsButton_;
   double position_ = 0;
   double duration_ = 0;
   long long shownSecond_ = -1;

@@ -19,9 +19,11 @@ class ResumeService {
 
   std::optional<double> lookup(const std::string& key);
   void record(const std::string& key, double position, double duration);
+  void clear();  // forget every saved position
 
  private:
   void ensureLoadedLocked();
+  void writeLocked();
 
   QMutex mutex_;
   QString path_;

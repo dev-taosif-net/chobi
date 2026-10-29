@@ -15,7 +15,7 @@ ctest --test-dir build -L integration             # real libmpv on generated med
 | `test_subtitle_finder` | Spec examples, deterministic order, unrelated files rejected, Unicode/spaces, flags (`forced`, `sdh`), case handling |
 | `test_language`, `test_track_label` | Language-tag parsing, labels with missing metadata |
 | `test_resume_store`, `test_time_format` | Resume policy and file format, time display |
-| `test_main_window` | Real window (offscreen) + fake engine: keys, Esc/minimize, Ctrl+Q, drag-and-drop of a Bangla/space/`%` path, subtitle discovery, file switching, error display |
+| `test_main_window` | Real window (offscreen) + fake engine: keys, Esc/minimize, Ctrl+Q, drag-and-drop of a Bangla/space/`%` path, subtitle discovery, file switching, error display, resume on/off, position saved on switch, forget positions, volume remembered on close (and not when off), settings file round trip, settings dialog |
 | `test_mpv_engine` | Real libmpv headless: 16-clip format matrix, 3 audio tracks with metadata, switching without reload, exact seeks, end-of-file, resume start, external subtitles on a Unicode path, no subtitle leak across rapid switches, legacy encoding, broken files, partial download, 100-switch memory growth |
 
 CI also runs the suite under AddressSanitizer + UndefinedBehaviorSanitizer on Linux.
@@ -52,6 +52,13 @@ Record OS, desktop/compositor, GPU and driver. Use your own clips or `tests/fixt
 - [ ] Partially downloaded MKV: plays the available part
 - [ ] Unplug/replug a monitor, or move the window between monitors with different DPI
 - [ ] Suspend and resume while paused, then continue playback
+
+**Settings** (⚙ button or right-click → Settings…)
+- [ ] Watch a video past 30 s, close the app, reopen the same video: continues from there
+- [ ] Turn "Resume…" off: the same video now starts from 0:00, and new positions aren't saved
+- [ ] "Forget saved positions" clears them (reopen a resumed video: starts at 0:00)
+- [ ] Set volume to 86 (slider), close the app, open another video: volume is 86
+- [ ] Turn "Remember volume" off, restart: volume starts at 100
 
 **UI**
 - [ ] Controls auto-hide after about 2.5 s of playback without mouse movement, cursor hides; any mouse

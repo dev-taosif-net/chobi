@@ -158,6 +158,9 @@ MpvEngine::MpvEngine(const Options& options, QObject* parent)
   set("idle", "yes");
   set("keep-open", "yes");
   set("volume-max", "100");
+  // mpv keeps this across files; only a new session needs it set explicitly.
+  state_.volume = qBound(0.0, options.initialVolume, 100.0);
+  set("volume", QByteArray::number(state_.volume, 'f', 1));
   // We discover subtitles ourselves (strict matching, off the UI thread) and never scan for
   // external audio or cover art.
   set("sub-auto", "no");

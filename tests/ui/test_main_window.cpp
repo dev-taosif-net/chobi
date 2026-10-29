@@ -1,16 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Drives the real MainWindow (offscreen) with a fake engine: keyboard shortcuts, Esc order,
-// drag-and-drop with awkward paths, external subtitle discovery and error display.
+// drag-and-drop with awkward paths, external subtitle discovery, error display, and the
+// "resume where stopped" / "remember volume" settings.
 #include <QtTest>
 
+#include <QCheckBox>
 #include <QFile>
 #include <QMimeData>
 #include <QTemporaryDir>
+#include <QThreadPool>
 
 #include "FakeEngine.h"
 #include "app/MainWindow.h"
+#include "app/ResumeService.h"
+#include "app/Settings.h"
+#include "app/SettingsDialog.h"
+#include "core/ResumeStore.h"
 
+using chobi::AppSettings;
 using chobi::MainWindow;
+using chobi::ResumeService;
+using chobi::SettingsStore;
 
 namespace {
 
@@ -39,6 +49,22 @@ class MainWindowTest : public QObject {
   FakeEngine* engine = nullptr;
   MainWindow* window = nullptr;
   QTemporaryDir dir;
+  std::shared_ptr<ResumeService> resume;
+  std::shared_ptr<SettingsStore> store;
+
+  void createWindow(const AppSettings& settings) {
+    delete window;
+    resume = std::make_shared<ResumeService>(dir.filePath("resume.tsv"));
+    store = std::make_shared<SettingsStore>(dir.filePath("settings.ini"));
+    window = new MainWindow(engine, new QWidget, {resume, store, settings, {"bn", "en"}});
+    window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(window));
+  }
+
+  // touch() writes 1 byte, so the resume key is "1:<name>"; pre-seed a position for it.
+  void seedPosition(const QString& fileName, double seconds) {
+    resume->record(chobi::core::ResumeStore::makeKey(fileName.toStdString(), 1), seconds, 0);
+  }
 
   // Opens `path`, waits for the background probe and fakes a successful load.
   void openAndLoad(const QString& path, double duration = 100) {
@@ -52,13 +78,14 @@ class MainWindowTest : public QObject {
  private slots:
   void init() {
     engine = new FakeEngine;
-    window = new MainWindow(engine, new QWidget, nullptr, {"bn", "en"});
-    window->show();
-    QVERIFY(QTest::qWaitForWindowExposed(window));
+    QFile::remove(dir.filePath("resume.tsv"));
+    QFile::remove(dir.filePath("settings.ini"));
+    createWindow(AppSettings{});
   }
 
   void cleanup() {
     delete window;
+    window = nullptr;
     delete engine;
   }
 
@@ -184,6 +211,107 @@ class MainWindowTest : public QObject {
     QVERIFY(probed.wait(5000));
     emit engine->fileFailed("Unsupported or unrecognized file format.");
     QVERIFY(window->centerText().contains("Unsupported"));
+  }
+
+  // --- Settings: resume where stopped -------------------------------------------------------
+
+  void resumeOnStartsFromSavedPosition() {
+    const QString video = dir.filePath("movie.mkv");
+    touch(video);  // 1 byte
+    seedPosition("movie.mkv", 754);
+    QSignalSpy probed(window, &MainWindow::probeFinished);
+    window->openLocation(video);
+    QVERIFY(probed.wait(5000));
+    QCOMPARE(engine->opened.back().start, 754.0);
+  }
+
+  void resumeOffStartsFromBeginningAndSavesNothing() {
+    AppSettings s;
+    s.resumePlayback = false;
+    createWindow(s);
+    const QString video = dir.filePath("movie.mkv");
+    touch(video);
+    seedPosition("movie.mkv", 754);
+    openAndLoad(video, 3600);
+    QCOMPARE(engine->opened.back().start, 0.0);
+
+    engine->s.position = 1800;
+    window->close();  // would save 1800 if resume were on
+    QThreadPool::globalInstance()->waitForDone();
+    QCOMPARE(resume->lookup(chobi::core::ResumeStore::makeKey("movie.mkv", 1)).value_or(-1), 754.0);
+  }
+
+  void positionSavedWhenSwitchingAndRestoredLater() {
+    const QString a = dir.filePath("a.mkv");
+    const QString b = dir.filePath("b.mkv");
+    touch(a);
+    touch(b);
+    openAndLoad(a, 3600);
+    engine->s.position = 1234;
+    openAndLoad(b, 3600);  // switching saves a's position
+    QThreadPool::globalInstance()->waitForDone();
+    openAndLoad(a, 3600);
+    QCOMPARE(engine->opened.back().start, 1234.0);
+  }
+
+  void forgetSavedPositions() {
+    seedPosition("movie.mkv", 754);
+    resume->clear();
+    QVERIFY(!resume->lookup(chobi::core::ResumeStore::makeKey("movie.mkv", 1)));
+  }
+
+  // --- Settings: remember volume ------------------------------------------------------------
+
+  void volumeRememberedAcrossSessions() {
+    const QString video = dir.filePath("v.mkv");
+    touch(video);
+    openAndLoad(video);
+    engine->setVolume(86);
+    window->close();  // the user clicks X
+    QThreadPool::globalInstance()->waitForDone();
+
+    const AppSettings next = store->load();
+    QCOMPARE(next.volume, 86.0);
+    QCOMPARE(next.startupVolume(), 86.0);  // the next session's engine starts at 86
+  }
+
+  void volumeNotRememberedWhenOff() {
+    AppSettings s;
+    s.rememberVolume = false;
+    createWindow(s);
+    engine->setVolume(40);
+    window->close();
+    QThreadPool::globalInstance()->waitForDone();
+    QCOMPARE(store->load().startupVolume(), 100.0);
+  }
+
+  void settingsPersistAndClamp() {
+    AppSettings s;
+    s.resumePlayback = false;
+    s.rememberVolume = true;
+    s.volume = 140;  // out of range
+    store->save(s);
+    const AppSettings loaded = store->load();
+    QVERIFY(!loaded.resumePlayback);
+    QVERIFY(loaded.rememberVolume);
+    QCOMPARE(loaded.volume, 100.0);
+    QCOMPARE(SettingsStore(dir.filePath("missing.ini")).load().startupVolume(), 100.0);
+  }
+
+  void settingsDialogEditsBothOptions() {
+    chobi::SettingsDialog dialog(AppSettings{});
+    auto* resumeBox = dialog.findChild<QCheckBox*>("resumePlayback");
+    auto* volumeBox = dialog.findChild<QCheckBox*>("rememberVolume");
+    QVERIFY(resumeBox && volumeBox);
+    QVERIFY(resumeBox->isChecked() && volumeBox->isChecked());  // both on by default
+    resumeBox->setChecked(false);
+    const AppSettings out = dialog.settings(AppSettings{});
+    QVERIFY(!out.resumePlayback);
+    QVERIFY(out.rememberVolume);
+
+    window->applySettings(out);
+    QThreadPool::globalInstance()->waitForDone();
+    QVERIFY(!store->load().resumePlayback);
   }
 };
 

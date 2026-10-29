@@ -27,6 +27,7 @@ class MpvEngine final : public PlayerEngine {
     QString fontsDir;                // bundled fonts (e.g. Noto Sans Bengali), optional
     QStringList preferredLanguages;  // ISO 639-1, best first; drives subtitle selection
     bool verboseLog = false;         // forward mpv log lines to stderr
+    double initialVolume = 100;      // 0..100, e.g. the remembered volume
   };
 
   explicit MpvEngine(const Options& options, QObject* parent = nullptr);

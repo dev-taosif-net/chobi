@@ -19,7 +19,10 @@ mpv does the decoding, A/V sync and subtitle rendering, and a small native UI st
   SRT, ASS/SSA and WebVTT, Unicode (Bangla and English), automatic encoding detection.
 - Multiple audio tracks with language, codec and channel layout; switching keeps the position.
 - Drag and drop, "Open With", command-line files, paths with spaces and Unicode.
-- Remembers where you stopped, keyed by file name and size (survives moving the file).
+- **Resume where you stopped** (on by default): every video continues from where you left it,
+  keyed by file name and size so it survives moving the file.
+- **Remembers your volume** (on by default): set 86 in one video, close the app, and the next
+  video starts at 86.
 - Event-driven: 0% CPU when paused or idle, no polling, no telemetry, and no network access unless you open a URL.
 
 ## Keyboard shortcuts
@@ -38,6 +41,18 @@ mpv does the decoding, A/V sync and subtitle rendering, and a small native UI st
 | Ctrl+Q | Quit |
 
 The mouse wheel changes the volume; right-click opens the full menu (audio, subtitles, speed).
+
+## Settings
+
+Open them with the ⚙ button on the control bar or right-click → **Settings…**
+
+| Option | Default | Effect |
+|---|---|---|
+| Resume videos from where you stopped | on | Positions are saved after 30 s of watching and forgotten once a video is watched to the end. "Forget saved positions" clears them all. |
+| Remember volume level for the next video | on | The last volume is restored for the next video and the next session. |
+
+Settings live in `~/.config/Chobi/settings.ini` (Windows: `%LOCALAPPDATA%\Chobi\settings.ini`);
+positions in `~/.local/share/Chobi/resume.tsv` (Windows: `%APPDATA%\Chobi\resume.tsv`).
 
 ## Building
 

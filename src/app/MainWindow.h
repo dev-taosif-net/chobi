@@ -9,6 +9,7 @@
 #include <QWidget>
 
 #include "app/MediaProbe.h"
+#include "app/Settings.h"
 #include "core/PlaybackController.h"
 
 class QLabel;
@@ -19,15 +20,27 @@ namespace chobi {
 class ControlsBar;
 class PlayerEngine;
 class ResumeService;
+class SettingsStore;
 
 class MainWindow final : public QWidget, public core::IWindowController {
   Q_OBJECT
 
  public:
-  // `videoSurface` becomes a child of the window. `resume` may be null (no position memory).
-  MainWindow(PlayerEngine* engine, QWidget* videoSurface, std::shared_ptr<ResumeService> resume,
-             std::vector<std::string> preferredLanguages, QWidget* parent = nullptr);
+  struct Services {
+    std::shared_ptr<ResumeService> resume;        // null: no position memory
+    std::shared_ptr<SettingsStore> settingsStore;  // null: settings aren't persisted
+    AppSettings settings;                          // as loaded at startup
+    std::vector<std::string> preferredLanguages;   // subtitle preference, ISO 639-1
+  };
+
+  // `videoSurface` becomes a child of the window.
+  MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services services,
+             QWidget* parent = nullptr);
   ~MainWindow() override;
+
+  const AppSettings& settings() const { return settings_; }
+  void applySettings(const AppSettings& settings);  // takes effect now and is saved
+  void openSettings();
 
   // Path, file:// URI or network URL. Safe to call while something else is playing.
   void openLocation(const QString& location);
@@ -73,6 +86,8 @@ class MainWindow final : public QWidget, public core::IWindowController {
   void openSubtitleDialog();
   void loadSubtitleFile(const QString& path);
   void saveResumePosition();
+  void saveSession();  // resume position + remembered volume, written off the UI thread
+  void persistSettings();
   void showControls();
   void maybeHideControls();
   void setCenterText(const QString& text);
@@ -82,6 +97,8 @@ class MainWindow final : public QWidget, public core::IWindowController {
   PlayerEngine* engine_;
   QWidget* video_;
   std::shared_ptr<ResumeService> resume_;
+  std::shared_ptr<SettingsStore> settingsStore_;
+  AppSettings settings_;
   std::vector<std::string> preferredLanguages_;
   core::PlaybackController controller_;
 
@@ -103,6 +120,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   QString lastError_;
   QString lastDirectory_;
   bool wasMaximized_ = false;
+  bool sessionSaved_ = false;
   bool firstFramePending_ = false;
   int wheelAccumulator_ = 0;
 };

@@ -33,7 +33,17 @@ void ResumeService::record(const std::string& key, double position, double durat
   const bool known = store_.lookup(key).has_value();
   if (!known && !core::ResumeStore::shouldRemember(position, duration)) return;  // nothing to do
   store_.record(key, position, duration);
+  writeLocked();
+}
 
+void ResumeService::clear() {
+  QMutexLocker lock(&mutex_);
+  loaded_ = true;  // nothing on disk is worth reading any more
+  store_ = core::ResumeStore();
+  writeLocked();
+}
+
+void ResumeService::writeLocked() {
   QDir().mkpath(QFileInfo(path_).absolutePath());
   QSaveFile file(path_);
   if (!file.open(QIODevice::WriteOnly)) return;

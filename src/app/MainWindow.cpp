@@ -20,6 +20,7 @@
 #include "app/ControlsBar.h"
 #include "app/MediaPath.h"
 #include "app/ResumeService.h"
+#include "app/SettingsDialog.h"
 #include "core/Language.h"
 #include "core/MediaFormats.h"
 #include "core/SubtitleFinder.h"
@@ -78,14 +79,15 @@ QString idleHint() {
 
 }  // namespace
 
-MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface,
-                       std::shared_ptr<ResumeService> resume,
-                       std::vector<std::string> preferredLanguages, QWidget* parent)
+MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services services,
+                       QWidget* parent)
     : QWidget(parent),
       engine_(engine),
       video_(videoSurface),
-      resume_(std::move(resume)),
-      preferredLanguages_(std::move(preferredLanguages)),
+      resume_(std::move(services.resume)),
+      settingsStore_(std::move(services.settingsStore)),
+      settings_(services.settings),
+      preferredLanguages_(std::move(services.preferredLanguages)),
       controller_(*engine, *this) {
   setWindowTitle(QStringLiteral("Chobi"));
   setAcceptDrops(true);
@@ -146,6 +148,8 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface,
   connect(controls_, &ControlsBar::muteClicked, this, [this] { controller_.toggleMute(); });
   connect(controls_, &ControlsBar::fullscreenClicked, this,
           [this] { controller_.toggleFullscreen(); });
+  connect(controls_, &ControlsBar::settingsClicked, this, &MainWindow::openSettings);
+  controls_->setVolume(engine_->state().volume);  // e.g. the remembered volume
 
   connectEngine();
   setCenterText(idleHint());
@@ -153,6 +157,8 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface,
 }
 
 MainWindow::~MainWindow() {
+  // Quitting without a close event (logout, QApplication::quit) still saves the session.
+  if (!sessionSaved_) saveSession();
   // Probe and resume jobs capture `this`/shared state; let them finish first.
   QThreadPool::globalInstance()->waitForDone();
 }
@@ -299,7 +305,7 @@ void MainWindow::openLocation(const QString& location) {
   lastDirectory_ = QFileInfo(source->location).absolutePath();
   const QString path = source->location;
   const std::vector<std::string> prefs = preferredLanguages_;
-  ResumeService* resume = resume_.get();
+  ResumeService* resume = settings_.resumePlayback ? resume_.get() : nullptr;
   QThreadPool::globalInstance()->start([this, generation, path, prefs, resume] {
     const ProbeResult result = probeMedia(path, prefs, resume);
     QMetaObject::invokeMethod(
@@ -378,7 +384,7 @@ void MainWindow::loadSubtitleFile(const QString& path) {
 }
 
 void MainWindow::saveResumePosition() {
-  if (resumeKey_.empty() || !resume_) return;
+  if (resumeKey_.empty() || !resume_ || !settings_.resumePlayback) return;
   const core::PlaybackState& s = engine_->state();
   if (!s.loaded) return;
   std::shared_ptr<ResumeService> resume = resume_;
@@ -387,6 +393,42 @@ void MainWindow::saveResumePosition() {
   const double duration = s.duration;
   QThreadPool::globalInstance()->start(
       [resume, key, position, duration] { resume->record(key, position, duration); });
+}
+
+void MainWindow::saveSession() {
+  saveResumePosition();
+  if (settings_.rememberVolume) {
+    settings_.volume = engine_->state().volume;
+    persistSettings();
+  }
+}
+
+void MainWindow::persistSettings() {
+  if (!settingsStore_) return;
+  std::shared_ptr<SettingsStore> store = settingsStore_;
+  const AppSettings snapshot = settings_;
+  QThreadPool::globalInstance()->start([store, snapshot] { store->save(snapshot); });
+}
+
+void MainWindow::applySettings(const AppSettings& settings) {
+  const bool resumeTurnedOn = settings.resumePlayback && !settings_.resumePlayback;
+  settings_ = settings;
+  settings_.volume = engine_->state().volume;
+  persistSettings();
+  // Turning resume on mid-video: start tracking the current file from now on.
+  if (resumeTurnedOn && engine_->state().loaded) {
+    showMessage(tr("Resume is on: this video will continue from here next time").toStdString());
+  }
+}
+
+void MainWindow::openSettings() {
+  SettingsDialog dialog(settings_, this);
+  connect(&dialog, &SettingsDialog::forgetPositionsRequested, this, [this] {
+    if (!resume_) return;
+    std::shared_ptr<ResumeService> resume = resume_;
+    QThreadPool::globalInstance()->start([resume] { resume->clear(); });
+  });
+  if (dialog.exec() == QDialog::Accepted) applySettings(dialog.settings(settings_));
 }
 
 bool MainWindow::isFullscreen() const { return isFullScreen(); }
@@ -404,7 +446,7 @@ void MainWindow::setFullscreen(bool fullscreen) {
 }
 
 void MainWindow::minimize() {
-  saveResumePosition();
+  saveSession();
   showMinimized();
 }
 
@@ -535,6 +577,7 @@ void MainWindow::contextMenuEvent(QContextMenuEvent* event) {
   menu.addSeparator();
   connect(menu.addAction(isFullScreen() ? tr("Exit fullscreen\tF") : tr("Fullscreen\tF")),
           &QAction::triggered, this, [this] { controller_.toggleFullscreen(); });
+  connect(menu.addAction(tr("Settings…")), &QAction::triggered, this, &MainWindow::openSettings);
   connect(menu.addAction(tr("Quit\tCtrl+Q")), &QAction::triggered, this, &MainWindow::close);
   menu.exec(event->globalPos());
 }
@@ -550,7 +593,8 @@ void MainWindow::changeEvent(QEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
-  saveResumePosition();
+  saveSession();
+  sessionSaved_ = true;
   QThreadPool::globalInstance()->waitForDone();
   event->accept();
 }

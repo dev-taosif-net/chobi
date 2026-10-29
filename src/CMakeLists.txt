@@ -26,6 +26,8 @@ add_library(chobi_app STATIC
   app/MediaProbe.cpp
   app/ResumeService.cpp
   app/SeekSlider.cpp
+  app/Settings.cpp
+  app/SettingsDialog.cpp
 )
 target_link_libraries(chobi_app PUBLIC
   chobi_core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Libmpv::Libmpv)
