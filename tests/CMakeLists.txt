@@ -15,13 +15,17 @@ function(chobi_add_test name)
 endfunction()
 
 # Unit tests: core logic only (no Qt GUI, no libmpv).
-foreach(t language subtitle_finder keymap playback_controller resume_store time_format track_label)
+foreach(t language subtitle_finder keymap playback_controller resume_store time_format track_label
+          version)
   chobi_add_test(test_${t} SOURCES unit/test_${t}.cpp LIBS chobi_core Qt6::Core LABELS unit)
 endforeach()
 
 # UI test: real MainWindow, fake engine, offscreen platform.
 chobi_add_test(test_main_window SOURCES ui/test_main_window.cpp ui/FakeEngine.h
   LIBS chobi_app LABELS ui)
+
+chobi_add_test(test_updater SOURCES ui/test_updater.cpp ui/FakeEngine.h
+  LIBS chobi_app chobi_monocypher Qt6::Network LABELS ui)
 
 # Integration tests: real libmpv (headless) on generated media.
 find_program(CHOBI_BASH bash)

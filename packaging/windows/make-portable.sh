@@ -24,12 +24,13 @@ cp "$exe" "$dest/"
 plugins="$(qtpaths6 --query QT_INSTALL_PLUGINS 2>/dev/null || true)"
 [[ -z "$plugins" ]] && plugins="$prefix/share/qt6/plugins"
 plugins="$(cygpath -u "$plugins")"
-for sub in platforms styles imageformats iconengines; do
+for sub in platforms styles imageformats iconengines tls; do
   [[ -d "$plugins/$sub" ]] || continue
   mkdir -p "$dest/$sub"
   case "$sub" in
     platforms) cp "$plugins/$sub/qwindows.dll" "$dest/$sub/" ;;
     imageformats) cp "$plugins/$sub"/{qsvg,qico}.dll "$dest/$sub/" 2>/dev/null || true ;;
+    tls) cp "$plugins/$sub/qschannelbackend.dll" "$dest/$sub/" ;;  # HTTPS for update checks
     *) cp "$plugins/$sub"/*.dll "$dest/$sub/" 2>/dev/null || true ;;
   esac
 done

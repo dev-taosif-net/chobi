@@ -40,6 +40,18 @@
 - Inside Flatpak (when available), the sandbox may hide sibling subtitle files unless the
   package grants host read access.
 
+## Packages and updates
+
+- The AppImage needs glibc 2.41+ (it is built on Debian 13). Ubuntu 24.04 LTS and older can't
+  run it.
+- Packages are large (AppImage about 115 MB, Windows installer of similar size) because they bundle
+  Debian's or MSYS2's full FFmpeg (including encoders Chobi never uses). A slim, pinned
+  libmpv/FFmpeg build is planned.
+- The Windows installer and in-app update have not yet been tested on a real Windows PC (CI
+  only). The installer is not code-signed yet, so SmartScreen shows a warning.
+- The portable Windows zip and distribution packages don't update themselves; they show a
+  download link.
+
 ## Resume positions
 
 - Saved positions last 7 days after the video was last watched, then they are removed.

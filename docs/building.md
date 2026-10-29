@@ -38,7 +38,9 @@ ctest --test-dir build --output-on-failure
 sudo cmake --install build           # /usr/local: binary, .desktop (Open With), icon, metainfo
 ```
 
-Options: `-DCHOBI_BUILD_TESTS=OFF`, `-DCHOBI_SANITIZE=ON` (ASan + UBSan).
+Options: `-DCHOBI_BUILD_TESTS=OFF`, `-DCHOBI_SANITIZE=ON` (ASan + UBSan),
+`-DCHOBI_ENABLE_UPDATER=OFF` (distribution packages: updates come from the package manager).
+Builds without a release key in `packaging/update-signing-key.pub` never check for updates.
 
 Runtime environment variables: `CHOBI_SUBTITLE_LANGS=bn,en` (subtitle language preference,
 default: system UI languages, then English), `CHOBI_MPV_LOG=1` (mpv log to stderr),
@@ -65,16 +67,24 @@ default: system UI languages, then English), `CHOBI_MPV_LOG=1` (mpv log to stder
    ```
    `dist/chobi-windows-x64/chobi.exe` runs without MSYS2 installed.
 
-CI does exactly this and uploads the folder as the `chobi-windows-x64-dev` artifact. It is a
-**development build**: release packages (installer with file associations, our own pinned
-libmpv build, corresponding-source archive) come in a later stage.
+CI does exactly this on every push and uploads the folder as the `chobi-windows-x64-dev`
+artifact. Tagged releases additionally build the installer from `packaging/windows/chobi.iss`
+(see [releasing.md](releasing.md)).
 
-## Packaging status
+## Packaging
 
-| Channel | Status |
-|---|---|
-| Linux `cmake --install` (+ .desktop, icon, AppStream) | ✅ |
-| Windows portable dev folder (CI artifact) | ✅ (untested on real hardware) |
-| Debian package | planned |
-| Flatpak (Flathub) | planned |
-| Windows installer (Inno Setup, Open With registration) | planned |
+| Channel | How | Self-update |
+|---|---|---|
+| Linux AppImage | `packaging/linux/build-appimage.sh` (CI builds it on Debian 13) | ✅ |
+| Windows installer | `packaging/windows/chobi.iss` (Inno Setup, per user) | ✅ |
+| Windows portable zip | `packaging/windows/make-portable.sh` | download link |
+| `cmake --install` / distro packages | standard | via the package manager |
+| Flatpak (Flathub) | planned | via Flathub |
+
+### AppImage runtime requirements
+
+The AppImage bundles Qt, libmpv, FFmpeg and their dependencies, but by design uses the system's
+graphics and desktop libraries: OpenGL/EGL (libglvnd), libva, the Vulkan loader, libdrm, gbm,
+Wayland client, fontconfig, FreeType, HarfBuzz, FriBidi, ALSA, PipeWire, X11/xcb (incl. SM/ICE),
+libxkbcommon, D-Bus and libusb. Every desktop installation has these. The release workflow checks
+that the AppImage starts on Ubuntu 26.04, Fedora 43 and Arch with only those installed.

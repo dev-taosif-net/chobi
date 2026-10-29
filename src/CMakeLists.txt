@@ -3,6 +3,7 @@
 # Toolkit-free logic: no Qt, no libmpv. Unit-tested on its own.
 add_library(chobi_core STATIC
   core/KeyMap.cpp
+  core/Version.cpp
   core/Language.cpp
   core/MediaFormats.cpp
   core/PlaybackController.cpp
@@ -28,10 +29,18 @@ add_library(chobi_app STATIC
   app/SeekSlider.cpp
   app/Settings.cpp
   app/SettingsDialog.cpp
+  app/UpdateBar.cpp
+  app/UpdateManifest.cpp
+  app/Updater.cpp
 )
 target_link_libraries(chobi_app PUBLIC
-  chobi_core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Libmpv::Libmpv)
-target_compile_definitions(chobi_app PUBLIC CHOBI_VERSION="${PROJECT_VERSION}")
+  chobi_core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network Libmpv::Libmpv
+  PRIVATE chobi_monocypher)
+target_compile_definitions(chobi_app PUBLIC CHOBI_VERSION="${PROJECT_VERSION}"
+  PRIVATE CHOBI_UPDATE_PUBLIC_KEY="${CHOBI_UPDATE_PUBLIC_KEY}")
+if(NOT CHOBI_ENABLE_UPDATER)
+  target_compile_definitions(chobi_app PRIVATE CHOBI_DISABLE_UPDATER)
+endif()
 
 qt_add_executable(chobi WIN32 main.cpp)
 target_link_libraries(chobi PRIVATE chobi_app)

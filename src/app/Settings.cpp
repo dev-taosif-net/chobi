@@ -12,6 +12,8 @@ namespace {
 constexpr char kResume[] = "playback/resume";
 constexpr char kRememberVolume[] = "audio/rememberVolume";
 constexpr char kVolume[] = "audio/volume";
+constexpr char kCheckForUpdates[] = "updates/autoCheck";
+constexpr char kLastUpdateCheck[] = "updates/lastCheck";
 
 }  // namespace
 
@@ -28,6 +30,8 @@ AppSettings SettingsStore::load() const {
   bool ok = false;
   const double volume = ini.value(kVolume, s.volume).toDouble(&ok);
   if (ok) s.volume = core::clampVolume(volume);
+  s.checkForUpdates = ini.value(kCheckForUpdates, s.checkForUpdates).toBool();
+  s.lastUpdateCheck = ini.value(kLastUpdateCheck, s.lastUpdateCheck).toLongLong();
   return s;
 }
 
@@ -37,6 +41,8 @@ void SettingsStore::save(const AppSettings& s) {
   ini.setValue(kResume, s.resumePlayback);
   ini.setValue(kRememberVolume, s.rememberVolume);
   ini.setValue(kVolume, core::clampVolume(s.volume));
+  ini.setValue(kCheckForUpdates, s.checkForUpdates);
+  ini.setValue(kLastUpdateCheck, s.lastUpdateCheck);
   ini.sync();
 }
 

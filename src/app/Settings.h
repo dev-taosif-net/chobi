@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QMutex>
+#include <QtGlobal>
 #include <QString>
 
 namespace chobi {
@@ -10,6 +11,8 @@ struct AppSettings {
   bool resumePlayback = true;  // continue each video where it was stopped
   bool rememberVolume = true;  // start new videos and sessions at the last volume
   double volume = 100;         // last volume (0..100), used when rememberVolume is on
+  bool checkForUpdates = true;  // look for a new release at most once a day
+  qint64 lastUpdateCheck = 0;   // Unix seconds of the last completed check
 
   // Volume the engine should start with.
   double startupVolume() const;

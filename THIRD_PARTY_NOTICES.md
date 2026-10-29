@@ -11,6 +11,7 @@ license texts and offer the exact source of these components (GPLv3 section 6).
 | [FFmpeg](https://ffmpeg.org) (via libmpv) | Demuxing, decoding | LGPL-2.1-or-later, or GPL when built with GPL components |
 | [libass](https://github.com/libass/libass) (via libmpv) | Subtitle rendering | ISC |
 | [HarfBuzz](https://harfbuzz.github.io), [FriBidi](https://github.com/fribidi/fribidi) (via libass) | Complex-script shaping (Bangla) | MIT / LGPL-2.1-or-later |
+| [Monocypher](https://monocypher.org) 4.0.3 (vendored in `third_party/monocypher`) | Verifying signed update manifests (Ed25519) | BSD-2-Clause or CC0-1.0 |
 | [Noto Sans Bengali](https://fonts.google.com/noto) (bundled only in Windows packages) | Bangla subtitle fallback font | SIL Open Font License 1.1 |
 
 Patent note: some codecs (e.g. HEVC, AAC, AC-3) may be covered by patents in some countries.

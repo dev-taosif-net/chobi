@@ -3,6 +3,7 @@
 #include <clocale>
 #include <cstdio>
 #include <memory>
+#include <string_view>
 
 #include <QApplication>
 #include <QDir>
@@ -17,6 +18,7 @@
 #include "app/MainWindow.h"
 #include "app/ResumeService.h"
 #include "app/Settings.h"
+#include "app/Updater.h"
 #include "core/Language.h"
 #include "engine/MpvEngine.h"
 #include "engine/MpvVideoWidget.h"
@@ -59,6 +61,20 @@ void printUsage() {
 int main(int argc, char* argv[]) {
   chobi::bench::start();
 
+  // Answer --version/--help without starting a GUI (also used to smoke-test packages).
+  for (int i = 1; i < argc; ++i) {
+    const std::string_view a = argv[i];
+    if (a == "--") break;
+    if (a == "--version" || a == "-v") {
+      std::printf("Chobi %s\n", CHOBI_VERSION);
+      return 0;
+    }
+    if (a == "--help" || a == "-h") {
+      printUsage();
+      return 0;
+    }
+  }
+
 #if defined(Q_OS_LINUX)
   // VA-API zero-copy needs EGL. Wayland always uses EGL; make X11 do the same.
   if (qEnvironmentVariableIsEmpty("QT_XCB_GL_INTEGRATION")) {
@@ -86,12 +102,6 @@ int main(int argc, char* argv[]) {
     const QString& a = args.at(i);
     if (!endOfOptions && a == QLatin1String("--")) {
       endOfOptions = true;
-    } else if (!endOfOptions && (a == QLatin1String("--version") || a == QLatin1String("-v"))) {
-      std::printf("Chobi %s\n", CHOBI_VERSION);
-      return 0;
-    } else if (!endOfOptions && (a == QLatin1String("--help") || a == QLatin1String("-h"))) {
-      printUsage();
-      return 0;
     } else if (!endOfOptions && a.startsWith(QLatin1Char('-'))) {
       std::fprintf(stderr, "chobi: ignoring unknown option %s\n", qPrintable(a));
     } else if (location.isEmpty()) {
@@ -126,10 +136,13 @@ int main(int argc, char* argv[]) {
   // Drop saved positions of videos deleted since the last run (expired ones go on load).
   QThreadPool::globalInstance()->start([resume] { resume->pruneDeletedVideos(); });
 
+  chobi::Updater updater(chobi::Updater::defaultConfig());
+
   int rc = 0;
   {
     auto* video = new chobi::MpvVideoWidget(engine.get());
-    chobi::MainWindow window(engine.get(), video, {resume, settingsStore, settings, languages});
+    chobi::MainWindow window(engine.get(), video,
+                             {resume, settingsStore, settings, languages, &updater});
 
     if (chobi::bench::enabled()) {
       // Startup timeline for bench/run_bench.py.

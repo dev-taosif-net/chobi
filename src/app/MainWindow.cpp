@@ -5,6 +5,8 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QContextMenuEvent>
+#include <QDateTime>
+#include <QDesktopServices>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -14,6 +16,7 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QProcess>
 #include <QThreadPool>
 #include <QWheelEvent>
 
@@ -21,6 +24,8 @@
 #include "app/MediaPath.h"
 #include "app/ResumeService.h"
 #include "app/SettingsDialog.h"
+#include "app/UpdateBar.h"
+#include "app/Updater.h"
 #include "core/Language.h"
 #include "core/MediaFormats.h"
 #include "core/SubtitleFinder.h"
@@ -34,6 +39,8 @@ namespace {
 constexpr int kControlsHideMs = 2500;
 constexpr int kOsdMs = 1500;
 constexpr int kLoadingIndicatorDelayMs = 300;
+constexpr int kAutoUpdateCheckDelayMs = 15000;  // well after startup and the first video
+constexpr qint64 kAutoUpdateCheckInterval = 24 * 60 * 60;
 constexpr double kSpeeds[] = {0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0};
 
 core::Key toCoreKey(int key) {
@@ -88,7 +95,8 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services ser
       settingsStore_(std::move(services.settingsStore)),
       settings_(services.settings),
       preferredLanguages_(std::move(services.preferredLanguages)),
-      controller_(*engine, *this) {
+      controller_(*engine, *this),
+      updater_(services.updater) {
   setWindowTitle(QStringLiteral("Chobi"));
   setAcceptDrops(true);
   setFocusPolicy(Qt::StrongFocus);
@@ -152,6 +160,7 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services ser
   controls_->setVolume(engine_->state().volume);  // e.g. the remembered volume
 
   connectEngine();
+  connectUpdater();
   setCenterText(idleHint());
   resize(960, 540);
 }
@@ -193,6 +202,78 @@ void MainWindow::connectEngine() {
   });
   connect(engine_, &PlayerEngine::warningRaised, this,
           [this](const QString& text) { showMessage(text.toStdString()); });
+}
+
+void MainWindow::connectUpdater() {
+  if (!updater_ || !updater_->enabled()) return;
+  updateBar_ = new UpdateBar(this);
+
+  auto markChecked = [this] {
+    settings_.lastUpdateCheck = QDateTime::currentSecsSinceEpoch();
+    persistSettings();
+  };
+  connect(updater_, &Updater::updateAvailable, this, [this, markChecked](const QString& version, bool) {
+    markChecked();
+    updateBar_->showAvailable(version, updater_->canInstallInApp());
+    layoutOverlays();
+  });
+  connect(updater_, &Updater::upToDate, this, [this, markChecked](bool userInitiated) {
+    markChecked();
+    if (userInitiated) {
+      showMessage(tr("Chobi %1 is up to date").arg(updater_->currentVersion()).toStdString());
+    }
+  });
+  connect(updater_, &Updater::checkFailed, this, [this](const QString& message, bool userInitiated) {
+    if (userInitiated) showMessage(tr("Could not check for updates: %1").arg(message).toStdString());
+  });
+  connect(updater_, &Updater::downloadProgress, updateBar_, &UpdateBar::showProgress);
+  connect(updater_, &Updater::installed, this, [this](const QString& version, const QString& path) {
+    restartPath_ = path;
+    updateBar_->showInstalled(version);
+  });
+  connect(updater_, &Updater::installerStarted, this, &MainWindow::quitForInstaller);
+  connect(updater_, &Updater::installFailed, updateBar_, &UpdateBar::showError);
+
+  connect(updateBar_, &UpdateBar::installClicked, updater_, &Updater::install);
+  connect(updateBar_, &UpdateBar::cancelClicked, updater_, &Updater::cancel);
+  connect(updateBar_, &UpdateBar::notesClicked, this,
+          [this] { QDesktopServices::openUrl(updater_->notesUrl()); });
+  connect(updateBar_, &UpdateBar::restartClicked, this,
+          [this] { restartIntoUpdate(restartPath_); });
+
+  // At most one automatic check a day, long after startup so it never competes with playback.
+  if (settings_.checkForUpdates &&
+      QDateTime::currentSecsSinceEpoch() - settings_.lastUpdateCheck >= kAutoUpdateCheckInterval) {
+    QTimer::singleShot(kAutoUpdateCheckDelayMs, this, [this] { checkForUpdates(false); });
+  }
+}
+
+void MainWindow::checkForUpdates(bool userInitiated) {
+  if (!updater_ || !updater_->enabled()) return;
+  if (userInitiated) showMessage(tr("Checking for updates…").toStdString());
+  updater_->check(userInitiated);
+}
+
+void MainWindow::restartIntoUpdate(const QString& executable) {
+  if (executable.isEmpty()) return;
+  saveSession();  // the new process resumes the current video from this position
+  QThreadPool::globalInstance()->waitForDone();
+  sessionSaved_ = true;
+  QStringList args;
+  if (!currentLocation_.isEmpty()) args << QStringLiteral("--") << currentLocation_;
+  if (QProcess::startDetached(executable, args)) close();
+}
+
+void MainWindow::quitForInstaller() {
+  saveSession();
+  QThreadPool::globalInstance()->waitForDone();
+  sessionSaved_ = true;
+  close();
+  QApplication::quit();
+}
+
+QString MainWindow::updateBarText() const {
+  return updateBar_ && updateBar_->isVisible() ? updateBar_->text() : QString();
 }
 
 void MainWindow::buildMenus() {
@@ -427,7 +508,8 @@ void MainWindow::applySettings(const AppSettings& settings) {
 }
 
 void MainWindow::openSettings() {
-  SettingsDialog dialog(settings_, this);
+  SettingsDialog dialog(settings_, updater_ && updater_->enabled(), this);
+  connect(&dialog, &SettingsDialog::checkNowRequested, this, [this] { checkForUpdates(true); });
   connect(&dialog, &SettingsDialog::forgetPositionsRequested, this, [this] {
     if (!resume_) return;
     std::shared_ptr<ResumeService> resume = resume_;
@@ -462,7 +544,7 @@ void MainWindow::requestQuit() { close(); }
 void MainWindow::showMessage(const std::string& text) {
   osd_->setText(QString::fromStdString(text));
   osd_->adjustSize();
-  osd_->move(16, 16);
+  osd_->move(16, osdTop());
   osd_->show();
   osd_->raise();
   osdTimer_.start();
@@ -508,7 +590,12 @@ void MainWindow::layoutOverlays() {
   const int barHeight = controls_->sizeHint().height();
   controls_->setGeometry(0, height() - barHeight, width(), barHeight);
   center_->setGeometry(rect().adjusted(32, 32, -32, -32 - barHeight));
-  osd_->move(16, 16);
+  if (updateBar_) updateBar_->setGeometry(0, 0, width(), updateBar_->sizeHint().height());
+  osd_->move(16, osdTop());
+}
+
+int MainWindow::osdTop() const {
+  return 16 + (updateBar_ && updateBar_->isVisible() ? updateBar_->height() : 0);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event) {
@@ -583,6 +670,10 @@ void MainWindow::contextMenuEvent(QContextMenuEvent* event) {
   connect(menu.addAction(isFullScreen() ? tr("Exit fullscreen\tF") : tr("Fullscreen\tF")),
           &QAction::triggered, this, [this] { controller_.toggleFullscreen(); });
   connect(menu.addAction(tr("Settings…")), &QAction::triggered, this, &MainWindow::openSettings);
+  if (updater_ && updater_->enabled()) {
+    connect(menu.addAction(tr("Check for updates…")), &QAction::triggered, this,
+            [this] { checkForUpdates(true); });
+  }
   connect(menu.addAction(tr("Quit\tCtrl+Q")), &QAction::triggered, this, &MainWindow::close);
   menu.exec(event->globalPos());
 }

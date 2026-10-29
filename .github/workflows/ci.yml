@@ -15,19 +15,25 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux / Ubuntu 26.04 (${{ matrix.name }})
+    name: Linux / ${{ matrix.image }} (${{ matrix.name }})
     runs-on: ubuntu-latest
-    container: ubuntu:26.04
+    container: ${{ matrix.image }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: release
+            image: ubuntu:26.04
             build-type: RelWithDebInfo
             sanitize: OFF
           - name: asan+ubsan
+            image: ubuntu:26.04
             build-type: Debug
             sanitize: ON
+          - name: oldest supported (Qt 6.8)
+            image: debian:trixie
+            build-type: RelWithDebInfo
+            sanitize: OFF
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:

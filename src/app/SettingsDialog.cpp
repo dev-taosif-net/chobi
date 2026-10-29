@@ -9,7 +9,9 @@
 
 namespace chobi {
 
-SettingsDialog::SettingsDialog(const AppSettings& current, QWidget* parent) : QDialog(parent) {
+SettingsDialog::SettingsDialog(const AppSettings& current, bool updatesAvailable,
+                               QWidget* parent)
+    : QDialog(parent) {
   setWindowTitle(tr("Settings"));
   setObjectName(QStringLiteral("SettingsDialog"));
 
@@ -38,6 +40,16 @@ SettingsDialog::SettingsDialog(const AppSettings& current, QWidget* parent) : QD
   hint->setWordWrap(true);
   hint->setEnabled(false);  // dimmed helper text
 
+  checkForUpdates_ = new QCheckBox(tr("Check for updates automatically (once a day)"), this);
+  checkForUpdates_->setObjectName(QStringLiteral("checkForUpdates"));
+  checkForUpdates_->setChecked(current.checkForUpdates);
+  auto* checkNow = new QPushButton(tr("Check now"), this);
+  checkNow->setObjectName(QStringLiteral("checkNow"));
+  checkNow->setAutoDefault(false);
+  connect(checkNow, &QPushButton::clicked, this, &SettingsDialog::checkNowRequested);
+  auto* version = new QLabel(tr("Chobi %1").arg(QStringLiteral(CHOBI_VERSION)), this);
+  version->setEnabled(false);
+
   auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
   connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
   connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -48,7 +60,13 @@ SettingsDialog::SettingsDialog(const AppSettings& current, QWidget* parent) : QD
   layout->addWidget(forget, 0, Qt::AlignLeft);
   layout->addSpacing(8);
   layout->addWidget(rememberVolume_);
+  layout->addSpacing(8);
+  layout->addWidget(checkForUpdates_);
+  layout->addWidget(checkNow, 0, Qt::AlignLeft);
+  checkForUpdates_->setVisible(updatesAvailable);
+  checkNow->setVisible(updatesAvailable);
   layout->addStretch();
+  layout->addWidget(version);
   layout->addWidget(buttons);
   setMinimumWidth(380);
 }
@@ -56,6 +74,7 @@ SettingsDialog::SettingsDialog(const AppSettings& current, QWidget* parent) : QD
 AppSettings SettingsDialog::settings(AppSettings base) const {
   base.resumePlayback = resume_->isChecked();
   base.rememberVolume = rememberVolume_->isChecked();
+  base.checkForUpdates = checkForUpdates_->isChecked();
   return base;
 }
 

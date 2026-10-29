@@ -21,6 +21,8 @@ class ControlsBar;
 class PlayerEngine;
 class ResumeService;
 class SettingsStore;
+class UpdateBar;
+class Updater;
 
 class MainWindow final : public QWidget, public core::IWindowController {
   Q_OBJECT
@@ -31,6 +33,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
     std::shared_ptr<SettingsStore> settingsStore;  // null: settings aren't persisted
     AppSettings settings;                          // as loaded at startup
     std::vector<std::string> preferredLanguages;   // subtitle preference, ISO 639-1
+    Updater* updater = nullptr;                    // null or disabled: no update UI
   };
 
   // `videoSurface` becomes a child of the window.
@@ -57,6 +60,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   QString currentLocation() const { return currentLocation_; }
   QString centerText() const;
   bool controlsVisible() const;
+  QString updateBarText() const;  // "" when hidden
 
  signals:
   void probeFinished();
@@ -93,6 +97,11 @@ class MainWindow final : public QWidget, public core::IWindowController {
   void setCenterText(const QString& text);
   void updateTitle();
   void layoutOverlays();
+  int osdTop() const;
+  void connectUpdater();
+  void checkForUpdates(bool userInitiated);
+  void restartIntoUpdate(const QString& executable);
+  void quitForInstaller();
 
   PlayerEngine* engine_;
   QWidget* video_;
@@ -101,6 +110,8 @@ class MainWindow final : public QWidget, public core::IWindowController {
   AppSettings settings_;
   std::vector<std::string> preferredLanguages_;
   core::PlaybackController controller_;
+  Updater* updater_;
+  UpdateBar* updateBar_ = nullptr;
 
   ControlsBar* controls_;
   QLabel* osd_;
@@ -122,6 +133,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   QString lastDirectory_;
   bool wasMaximized_ = false;
   bool sessionSaved_ = false;
+  QString restartPath_;  // updated AppImage waiting for "Restart now"
   bool firstFramePending_ = false;
   int wheelAccumulator_ = 0;
 };

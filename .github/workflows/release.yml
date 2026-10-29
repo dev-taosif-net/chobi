@@ -1,0 +1,203 @@
+name: Release
+
+# Pushing a tag vX.Y.Z (scripts/release.sh does it) builds, tests, signs and publishes a release.
+# Running it by hand ("Run workflow") is a dry run: same builds, uploaded as artifacts only.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: v
+        run: |
+          version=$(sed -n 's/^  VERSION \([0-9.]*\)$/\1/p' CMakeLists.txt | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match CMakeLists.txt version $version"
+            exit 1
+          fi
+
+  appimage:
+    name: Linux AppImage (built on Debian 13)
+    needs: version
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git ca-certificates curl file \
+            qt6-base-dev qt6-wayland libmpv-dev ffmpeg
+      - uses: actions/checkout@v5
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Package
+        run: bash packaging/linux/build-appimage.sh build dist
+      - name: Smoke test
+        run: dist/Chobi-*-x86_64.AppImage --appimage-extract-and-run --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: dist/Chobi-*-x86_64.AppImage
+          if-no-files-found: error
+
+  appimage-runs-on:
+    name: AppImage starts on ${{ matrix.image }}
+    needs: appimage
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: ubuntu:26.04
+            deps: apt-get update && apt-get install -y --no-install-recommends libgl1 libegl1 libopengl0 libva2 libva-drm2 libva-x11-2 libva-wayland2 libvulkan1 libdrm2 libgbm1 libwayland-client0 libfontconfig1 libharfbuzz0b libfribidi0 libasound2t64 libpipewire-0.3-0t64 libx11-6 libx11-xcb1 libxcb1 libsm6 libice6 libxkbcommon0 libdbus-1-3 libusb-1.0-0
+          - image: fedora:43
+            deps: dnf install -y mesa-libGL mesa-libEGL libglvnd-opengl libva vulkan-loader libdrm mesa-libgbm libwayland-client fontconfig harfbuzz fribidi alsa-lib pipewire-libs libX11 libX11-xcb libxcb libSM libICE libxkbcommon dbus-libs libusb1
+          - image: archlinux:latest
+            deps: pacman -Sy --noconfirm libglvnd libva vulkan-icd-loader libdrm mesa wayland fontconfig harfbuzz fribidi alsa-lib libpipewire libx11 libxcb libsm libice libxkbcommon dbus libusb
+    steps:
+      - name: Install a desktop's base libraries
+        run: ${{ matrix.deps }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-appimage
+      - name: Start
+        run: |
+          chmod +x Chobi-*-x86_64.AppImage
+          ./Chobi-*-x86_64.AppImage --appimage-extract >/dev/null
+          missing=$(find squashfs-root/usr/bin squashfs-root/usr/lib -type f -name '*.so*' -o -type f -path '*/bin/*' | \
+                    xargs -r ldd 2>/dev/null | grep 'not found' | sort -u || true)
+          if [ -n "$missing" ]; then echo "$missing"; exit 1; fi
+          squashfs-root/AppRun --version
+
+  windows:
+    name: Windows installer + portable
+    needs: version
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-mpv
+            mingw-w64-ucrt-x86_64-ffmpeg
+            zip
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Portable folder and zip
+        run: |
+          v=${{ needs.version.outputs.version }}
+          bash packaging/windows/make-portable.sh build dist/chobi-windows-x64
+          (cd dist && cp -r chobi-windows-x64 "Chobi-$v-windows-x64-portable" && \
+           zip -qr "Chobi-$v-windows-x64-portable.zip" "Chobi-$v-windows-x64-portable")
+          # GPL: exact versions of the bundled MSYS2 packages, with their source archives.
+          pacman -Q | awk '/^mingw-w64-ucrt-x86_64-/ {
+            n=$1; sub("mingw-w64-ucrt-x86_64-", "", n);
+            printf "%s %s https://repo.msys2.org/mingw/sources/mingw-w64-%s-%s.src.tar.zst\n", $1, $2, n, $2 }' \
+            > "dist/Chobi-$v-windows-third-party-sources.txt"
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp `
+            "/DAppVersion=${{ needs.version.outputs.version }}" `
+            "/DSourceDir=$env:GITHUB_WORKSPACE\dist\chobi-windows-x64" `
+            "/DOutputDir=$env:GITHUB_WORKSPACE\dist" `
+            packaging\windows\chobi.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/Chobi-*-windows-x64-setup.exe
+            dist/Chobi-*-windows-x64-portable.zip
+            dist/Chobi-*-windows-third-party-sources.txt
+          if-no-files-found: error
+
+  publish:
+    name: Sign and publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, appimage, appimage-runs-on, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Sign the update manifest
+        env:
+          CHOBI_UPDATE_SIGNING_SEED: ${{ secrets.CHOBI_UPDATE_SIGNING_SEED }}
+        run: |
+          v=${{ needs.version.outputs.version }}
+          if [ -z "$CHOBI_UPDATE_SIGNING_SEED" ]; then
+            echo "::error::secret CHOBI_UPDATE_SIGNING_SEED is missing; run scripts/setup-release-key.sh"
+            exit 1
+          fi
+          mc=third_party/monocypher
+          cc -O2 -c $mc/monocypher.c -o mc.o
+          cc -O2 -I$mc -c $mc/monocypher-ed25519.c -o mce.o
+          c++ -std=c++17 -O2 -I$mc tools/chobi_sign.cpp mc.o mce.o -o chobi-sign
+          python3 tools/make_update_manifest.py "$v" dist \
+            "https://github.com/${{ github.repository }}/releases/download/v$v/" > dist/update.json
+          ./chobi-sign sign dist/update.json
+          # The key the app has built in must accept this signature.
+          ./chobi-sign verify dist/update.json "$(cat packaging/update-signing-key.pub)"
+          (cd dist && sha256sum Chobi-* update.json > SHA256SUMS)
+          cat dist/update.json
+      - name: Release notes
+        run: |
+          v=${{ needs.version.outputs.version }}
+          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          cat >> notes.md <<EOF
+
+          ## Download
+          - **Windows 10/11:** \`Chobi-$v-windows-x64-setup.exe\` (updates itself) or the portable zip
+          - **Linux:** \`Chobi-$v-x86_64.AppImage\`, then \`chmod +x\` it and run (updates itself). Needs glibc 2.41+ (Debian 13, Ubuntu 25.04+, Fedora 42+, Arch).
+
+          Already installed? Chobi offers this update automatically.
+          EOF
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=${{ needs.version.outputs.version }}
+          gh release create "v$v" dist/* --title "Chobi $v" --notes-file notes.md --verify-tag
