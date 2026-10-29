@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "app/SeekSlider.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include <QMouseEvent>

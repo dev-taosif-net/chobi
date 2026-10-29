@@ -3,6 +3,10 @@
 
 #include <mpv/client.h>
 
+#if MPV_CLIENT_API_VERSION < MPV_MAKE_VERSION(2, 3)
+#error "Chobi needs libmpv from mpv 0.38 or newer (client API 2.3)"
+#endif
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>

@@ -28,7 +28,7 @@ add_library(chobi_app STATIC
   app/SeekSlider.cpp
 )
 target_link_libraries(chobi_app PUBLIC
-  chobi_core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets PkgConfig::MPV)
+  chobi_core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Libmpv::Libmpv)
 target_compile_definitions(chobi_app PUBLIC CHOBI_VERSION="${PROJECT_VERSION}")
 
 qt_add_executable(chobi WIN32 main.cpp)
