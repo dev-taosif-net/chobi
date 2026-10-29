@@ -5,6 +5,7 @@
 #include <QtTest>
 
 #include <QCheckBox>
+#include <QDir>
 #include <QFile>
 #include <QMimeData>
 #include <QTemporaryDir>
@@ -62,8 +63,11 @@ class MainWindowTest : public QObject {
   }
 
   // touch() writes 1 byte, so the resume key is "1:<name>"; pre-seed a position for it.
+  static std::string keyFor(const QString& fileName) {
+    return chobi::core::ResumeStore::makeKey(fileName.toStdString(), 1);
+  }
   void seedPosition(const QString& fileName, double seconds) {
-    resume->record(chobi::core::ResumeStore::makeKey(fileName.toStdString(), 1), seconds, 0);
+    resume->record(keyFor(fileName), dir.filePath(fileName), seconds, 0);
   }
 
   // Opens `path`, waits for the background probe and fakes a successful load.
@@ -238,7 +242,7 @@ class MainWindowTest : public QObject {
     engine->s.position = 1800;
     window->close();  // would save 1800 if resume were on
     QThreadPool::globalInstance()->waitForDone();
-    QCOMPARE(resume->lookup(chobi::core::ResumeStore::makeKey("movie.mkv", 1)).value_or(-1), 754.0);
+    QCOMPARE(resume->lookup(keyFor("movie.mkv")).value_or(-1), 754.0);
   }
 
   void positionSavedWhenSwitchingAndRestoredLater() {
@@ -255,9 +259,75 @@ class MainWindowTest : public QObject {
   }
 
   void forgetSavedPositions() {
+    touch(dir.filePath("movie.mkv"));
     seedPosition("movie.mkv", 754);
+    QVERIFY(resume->lookup(keyFor("movie.mkv")));
     resume->clear();
-    QVERIFY(!resume->lookup(chobi::core::ResumeStore::makeKey("movie.mkv", 1)));
+    QVERIFY(!resume->lookup(keyFor("movie.mkv")));
+  }
+
+  void positionsExpireAfterSevenDays() {
+    auto now = std::make_shared<std::int64_t>(1'800'000'000);
+    const QString file = dir.filePath("week.tsv");
+    ResumeService service(file, [now] { return *now; });
+    const QString video = dir.filePath("week.mkv");
+    touch(video);
+    service.record(keyFor("week.mkv"), video, 600, 0);
+
+    *now += 6 * 24 * 3600;  // six days later: still resumes
+    QCOMPARE(service.lookup(keyFor("week.mkv")).value_or(-1), 600.0);
+    *now += 2 * 24 * 3600;  // eight days after the last watch: gone, also from disk
+    QVERIFY(!service.lookup(keyFor("week.mkv")));
+    QFile f(file);
+    QVERIFY(f.open(QIODevice::ReadOnly));
+    QVERIFY(!f.readAll().contains("week.mkv"));
+  }
+
+  void deletedVideoIsForgotten() {
+    const QString kept = dir.filePath("kept.mkv");
+    const QString gone = dir.filePath("gone.mkv");
+    touch(kept);
+    touch(gone);
+    seedPosition("kept.mkv", 300);
+    seedPosition("gone.mkv", 400);
+    QVERIFY(QFile::remove(gone));  // the user deletes the video
+    QCOMPARE(resume->pruneDeletedVideos(), 1);
+    QVERIFY(!resume->lookup(keyFor("gone.mkv")));
+    QCOMPARE(resume->lookup(keyFor("kept.mkv")).value_or(-1), 300.0);
+  }
+
+  void replacedVideoIsForgotten() {
+    const QString video = dir.filePath("replaced.mkv");
+    touch(video);
+    seedPosition("replaced.mkv", 300);
+    QFile f(video);
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("a different, longer file");  // same name, different size
+    f.close();
+    QCOMPARE(resume->pruneDeletedVideos(), 1);
+    QVERIFY(!resume->lookup(keyFor("replaced.mkv")));
+  }
+
+  void unpluggedDriveIsKept() {
+    QDir(dir.path()).mkdir("usb");
+    const QString video = dir.filePath("usb/film.mkv");
+    touch(video);
+    resume->record(keyFor("film.mkv"), video, 500, 0);
+    QVERIFY(QDir(dir.path()).rename("usb", "usb-unplugged"));  // whole folder vanishes
+    QCOMPARE(resume->pruneDeletedVideos(), 0);  // can't tell deleted from unplugged: keep
+    QCOMPARE(resume->lookup(keyFor("film.mkv")).value_or(-1), 500.0);
+  }
+
+  void videoDeletedWhilePlayingIsNotSaved() {
+    const QString video = dir.filePath("playing.mkv");
+    touch(video);
+    seedPosition("playing.mkv", 100);
+    openAndLoad(video, 3600);
+    engine->s.position = 900;
+    QVERIFY(QFile::remove(video));
+    window->close();
+    QThreadPool::globalInstance()->waitForDone();
+    QVERIFY(!resume->lookup(keyFor("playing.mkv")));
   }
 
   // --- Settings: remember volume ------------------------------------------------------------

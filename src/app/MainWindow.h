@@ -116,6 +116,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   QString currentLocation_;
   QString displayName_;
   std::string resumeKey_;
+  QString resumePath_;
   std::vector<ExternalSubtitle> pendingSubtitles_;
   QString lastError_;
   QString lastDirectory_;

@@ -40,6 +40,14 @@
 - Inside Flatpak (when available), the sandbox may hide sibling subtitle files unless the
   package grants host read access.
 
+## Resume positions
+
+- Saved positions last 7 days after the video was last watched, then they are removed.
+- Deleted videos are detected at the next start: moving or renaming a video looks the same as
+  deleting it, so its position is forgotten too.
+- If a video's whole folder is missing at start (unplugged USB drive, offline network share),
+  its position is kept (it may come back) and only the 7-day expiry applies.
+
 ## Resources
 
 - Idle memory is about 130 MB PSS on the reference machine, mostly the GPU driver stack (see

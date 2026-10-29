@@ -10,6 +10,7 @@
 #include <QMessageBox>
 #include <QStandardPaths>
 #include <QSurfaceFormat>
+#include <QThreadPool>
 #include <QTimer>
 
 #include "app/Bench.h"
@@ -122,6 +123,8 @@ int main(int argc, char* argv[]) {
 
   const QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
   auto resume = std::make_shared<chobi::ResumeService>(dataDir + QStringLiteral("/resume.tsv"));
+  // Drop saved positions of videos deleted since the last run (expired ones go on load).
+  QThreadPool::globalInstance()->start([resume] { resume->pruneDeletedVideos(); });
 
   int rc = 0;
   {

@@ -31,8 +31,9 @@ SettingsDialog::SettingsDialog(const AppSettings& current, QWidget* parent) : QD
   rememberVolume_->setChecked(current.rememberVolume);
 
   auto* hint = new QLabel(
-      tr("Positions are remembered after 30 seconds of watching and forgotten once a video "
-         "is watched to the end."),
+      tr("A position is saved after 30 seconds of watching. It is forgotten when the video is "
+         "watched to the end, when it hasn't been watched for 7 days, or when the video file "
+         "is deleted."),
       this);
   hint->setWordWrap(true);
   hint->setEnabled(false);  // dimmed helper text

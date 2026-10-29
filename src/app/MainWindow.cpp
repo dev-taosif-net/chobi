@@ -291,6 +291,7 @@ void MainWindow::openLocation(const QString& location) {
   currentLocation_ = source->location;
   displayName_ = source->isLocalFile ? QFileInfo(source->location).fileName() : source->location;
   resumeKey_.clear();
+  resumePath_.clear();
   lastError_.clear();
   setCenterText(QString());
   loadingTimer_.start();
@@ -323,6 +324,7 @@ void MainWindow::onProbeFinished(quint64 generation, const ProbeResult& result) 
   }
 
   resumeKey_ = result.resumeKey;
+  resumePath_ = result.path;
   std::vector<core::SubtitleFile> subtitles;
   for (std::size_t i = 0; i < result.subtitles.size(); ++i) {
     const ExternalSubtitle& s = result.subtitles[i];
@@ -346,6 +348,7 @@ void MainWindow::onFileFailed(const QString& message) {
   loadingTimer_.stop();
   lastError_ = message;
   resumeKey_.clear();
+  resumePath_.clear();
   setCenterText(tr("Cannot play “%1”").arg(displayName_) + QStringLiteral("\n\n") + message);
   showControls();
   updateTitle();
@@ -389,10 +392,12 @@ void MainWindow::saveResumePosition() {
   if (!s.loaded) return;
   std::shared_ptr<ResumeService> resume = resume_;
   const std::string key = resumeKey_;
+  const QString path = resumePath_;
   const double position = s.position;
   const double duration = s.duration;
-  QThreadPool::globalInstance()->start(
-      [resume, key, position, duration] { resume->record(key, position, duration); });
+  QThreadPool::globalInstance()->start([resume, key, path, position, duration] {
+    resume->record(key, path, position, duration);
+  });
 }
 
 void MainWindow::saveSession() {

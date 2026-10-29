@@ -19,8 +19,9 @@ mpv does the decoding, A/V sync and subtitle rendering, and a small native UI st
   SRT, ASS/SSA and WebVTT, Unicode (Bangla and English), automatic encoding detection.
 - Multiple audio tracks with language, codec and channel layout; switching keeps the position.
 - Drag and drop, "Open With", command-line files, paths with spaces and Unicode.
-- **Resume where you stopped** (on by default): every video continues from where you left it,
-  keyed by file name and size so it survives moving the file.
+- **Resume where you stopped** (on by default): every video continues from where you left it.
+  A saved position is kept for 7 days after you last watched that video, and is removed as
+  soon as the video file is deleted.
 - **Remembers your volume** (on by default): set 86 in one video, close the app, and the next
   video starts at 86.
 - Event-driven: 0% CPU when paused or idle, no polling, no telemetry, and no network access unless you open a URL.
@@ -48,7 +49,7 @@ Open them with the ⚙ button on the control bar or right-click → **Settings�
 
 | Option | Default | Effect |
 |---|---|---|
-| Resume videos from where you stopped | on | Positions are saved after 30 s of watching and forgotten once a video is watched to the end. "Forget saved positions" clears them all. |
+| Resume videos from where you stopped | on | A position is saved after 30 s of watching. It is forgotten when the video is watched to the end, **7 days after you last watched it**, or **when the video file is deleted** (checked at every start). "Forget saved positions" clears them all. |
 | Remember volume level for the next video | on | The last volume is restored for the next video and the next session. |
 
 Settings live in `~/.config/Chobi/settings.ini` (Windows: `%LOCALAPPDATA%\Chobi\settings.ini`);
