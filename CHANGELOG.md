@@ -6,6 +6,8 @@ and versions follow [Semantic Versioning](https://semver.org). `scripts/release.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-30
+
 ### Added
 - **A title bar in fullscreen.** Moving the mouse shows a bar at the top with the video's title
   and Minimize, Exit fullscreen and Close buttons. It hides together with the control bar.
