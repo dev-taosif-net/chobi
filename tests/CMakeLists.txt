@@ -27,6 +27,9 @@ chobi_add_test(test_main_window SOURCES ui/test_main_window.cpp ui/FakeEngine.h
 chobi_add_test(test_updater SOURCES ui/test_updater.cpp ui/FakeEngine.h
   LIBS chobi_app chobi_monocypher Qt6::Network LABELS ui)
 
+chobi_add_test(test_single_instance SOURCES ui/test_single_instance.cpp
+  LIBS chobi_app Qt6::Network LABELS ui)
+
 # Integration tests: real libmpv (headless) on generated media.
 find_program(CHOBI_BASH bash)
 find_program(CHOBI_FFMPEG ffmpeg)

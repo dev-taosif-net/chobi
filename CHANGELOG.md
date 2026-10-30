@@ -6,6 +6,22 @@ and versions follow [Semantic Versioning](https://semver.org). `scripts/release.
 
 ## [Unreleased]
 
+### Added
+- **Time left** on the control bar, next to the total length: `−1:19:38 / 1:32:12`. Played and
+  left always add up to the total.
+- **Move the window by dragging the picture**, not only the title bar.
+- **Backspace** pauses, leaves fullscreen and minimizes (what Esc used to do).
+- **One window for all videos.** A video opened while Chobi is running (double-click in the file
+  manager, "Open With", the command line) plays in that window, which comes to the front, even
+  from minimized or behind the file manager. `--new-window` opens a separate window.
+
+### Changed
+- Opening a second video no longer opens a second window (see "One window" above).
+- **Esc now closes the player.** With Resume on, the video continues from there next time.
+- **New control bar icons.** Audio and subtitles are icons instead of words, and every button
+  uses one drawn icon set that stays sharp at any scaling and readable with dark desktop themes
+  (some themes drew the old play, volume and fullscreen icons dark on the dark bar).
+
 ## [0.2.0] - 2026-10-29
 
 ### Added

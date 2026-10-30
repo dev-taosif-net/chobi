@@ -40,11 +40,12 @@ class ControlsBar final : public QWidget {
 
  private:
   void updateTimeLabels();
+  QString remainingText(double position) const;
 
   QToolButton* playButton_;
   QLabel* positionLabel_;
   SeekSlider* seekSlider_;
-  QLabel* durationLabel_;
+  QLabel* remainingLabel_;  // "−1:19:38 / 1:32:12": time left, then the total
   QToolButton* muteButton_;
   QSlider* volumeSlider_;
   QToolButton* audioButton_;

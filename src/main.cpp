@@ -16,8 +16,10 @@
 
 #include "app/Bench.h"
 #include "app/MainWindow.h"
+#include "app/MediaPath.h"
 #include "app/ResumeService.h"
 #include "app/Settings.h"
+#include "app/SingleInstance.h"
 #include "app/Updater.h"
 #include "core/Language.h"
 #include "engine/MpvEngine.h"
@@ -51,8 +53,10 @@ QString bundledFontsDir() {
 }
 
 void printUsage() {
-  std::printf("Usage: chobi [--version] [FILE | URL]\n\n"
+  std::printf("Usage: chobi [--version] [--new-window] [FILE | URL]\n\n"
               "Chobi " CHOBI_VERSION " - a lightweight video player.\n"
+              "A video opened while Chobi is running plays in that window; --new-window opens\n"
+              "a separate one.\n"
               "Environment: CHOBI_SUBTITLE_LANGS=bn,en  CHOBI_MPV_LOG=1  CHOBI_BENCH=1\n");
 }
 
@@ -60,6 +64,8 @@ void printUsage() {
 
 int main(int argc, char* argv[]) {
   chobi::bench::start();
+  // Set by the launcher (file manager, desktop) on Wayland. Read it before Qt can use it.
+  const QByteArray activationToken = qgetenv("XDG_ACTIVATION_TOKEN");
 
   // Answer --version/--help without starting a GUI (also used to smoke-test packages).
   for (int i = 1; i < argc; ++i) {
@@ -96,17 +102,34 @@ int main(int argc, char* argv[]) {
   std::setlocale(LC_NUMERIC, "C");
 
   QString location;
+  bool newWindow = false;
   const QStringList args = QApplication::arguments();
   bool endOfOptions = false;
   for (int i = 1; i < args.size(); ++i) {
     const QString& a = args.at(i);
     if (!endOfOptions && a == QLatin1String("--")) {
       endOfOptions = true;
+    } else if (!endOfOptions && a == QLatin1String("--new-window")) {
+      newWindow = true;
     } else if (!endOfOptions && a.startsWith(QLatin1Char('-'))) {
       std::fprintf(stderr, "chobi: ignoring unknown option %s\n", qPrintable(a));
     } else if (location.isEmpty()) {
       location = a;  // one file per window; extra arguments are ignored
     }
+  }
+
+  // Chobi already running: it plays the video (relative paths resolved here, where they were
+  // typed) and comes to the front, and this process ends before starting an engine. Benchmarks
+  // always measure a fresh process.
+  const bool singleInstance = !newWindow && !chobi::bench::enabled();
+  chobi::InstanceServer instance(chobi::defaultInstanceName());
+  if (singleInstance) {
+    const std::optional<chobi::MediaSource> source = chobi::mediaSourceFromArgument(location);
+    if (chobi::forwardToRunningInstance(chobi::defaultInstanceName(),
+                                        {source ? source->location : location, activationToken})) {
+      return 0;
+    }
+    instance.listen();  // requests that arrive before the window exists wait for exec()
   }
 
   const std::vector<std::string> languages = preferredLanguages();
@@ -142,7 +165,8 @@ int main(int argc, char* argv[]) {
   {
     auto* video = new chobi::MpvVideoWidget(engine.get());
     chobi::MainWindow window(engine.get(), video,
-                             {resume, settingsStore, settings, languages, &updater});
+                             {resume, settingsStore, settings, languages, &updater,
+                              instance.isListening() ? &instance : nullptr});
 
     if (chobi::bench::enabled()) {
       // Startup timeline for bench/run_bench.py.

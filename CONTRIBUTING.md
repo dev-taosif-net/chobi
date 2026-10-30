@@ -22,7 +22,7 @@ A sanitizer build is available with `-DCHOBI_SANITIZE=ON` (CI runs it too).
 ## Code layout and rules
 
 - `src/core/`: pure C++17, **no Qt, no libmpv**. Every behavior rule (key map, seeking and volume
-  clamps, Esc order, subtitle matching, resume policy) lives here and has unit tests.
+  clamps, Backspace order, subtitle matching, resume policy) lives here and has unit tests.
 - `src/engine/`: libmpv integration. After initialization only the asynchronous,
   render-thread-safe libmpv API may be used, because the GUI thread also renders video
   (see the comment in `MpvEngine.h`). Never add a synchronous `mpv_get_property`/`mpv_command`.

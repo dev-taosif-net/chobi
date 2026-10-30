@@ -10,12 +10,13 @@ ctest --test-dir build -L integration             # real libmpv on generated med
 
 | Suite | What it proves |
 |---|---|
-| `test_keymap` | The exact shortcut table; Esc never maps to quit; unlisted modifiers do nothing |
-| `test_playback_controller` | ±5 s seeks clamped to [0, duration], repeated keys accumulate, ±5 volume clamped to 0–100, Esc = pause → leave fullscreen → minimize, audio cycling, subtitle toggle |
+| `test_keymap` | The exact shortcut table (Esc quits); Backspace never maps to quit; unlisted modifiers do nothing |
+| `test_playback_controller` | ±5 s seeks clamped to [0, duration], repeated keys accumulate, ±5 volume clamped to 0–100, Backspace = pause → leave fullscreen → minimize, audio cycling, subtitle toggle |
 | `test_subtitle_finder` | Spec examples, deterministic order, unrelated files rejected, Unicode/spaces, flags (`forced`, `sdh`), case handling |
 | `test_language`, `test_track_label` | Language-tag parsing, labels with missing metadata |
-| `test_resume_store`, `test_time_format` | Resume policy, 7-day expiry boundary and refresh, v1→v2 file migration, file format, time display |
-| `test_main_window` | Real window (offscreen) + fake engine: keys, Esc/minimize, Ctrl+Q, drag-and-drop of a Bangla/space/`%` path, subtitle discovery, file switching, error display, resume on/off, position saved on switch, forget positions, 7-day expiry (fake clock), deleted / replaced / unplugged-drive videos, deleted-while-playing, volume remembered on close (and not when off), settings file round trip, settings dialog |
+| `test_resume_store`, `test_time_format` | Resume policy, 7-day expiry boundary and refresh, v1→v2 file migration, file format, time display, time left (played + left = total) |
+| `test_main_window` | Real window (offscreen) + fake engine: keys, Backspace/minimize, Esc and Ctrl+Q close (position saved), time-left label, a later launch plays in this window and un-minimizes it, drag-and-drop of a Bangla/space/`%` path, subtitle discovery, file switching, error display, resume on/off, position saved on switch, forget positions, 7-day expiry (fake clock), deleted / replaced / unplugged-drive videos, deleted-while-playing, volume remembered on close (and not when off), settings file round trip, settings dialog |
+| `test_single_instance` | Hand-off to the running Chobi over a real local socket: Unicode path and activation token round trip, no server fails fast (< 1 s), a second server never takes over, a crash's leftover socket is replaced, silent connections are dropped |
 | `test_mpv_engine` | Real libmpv headless: 16-clip format matrix, 3 audio tracks with metadata, switching without reload, exact seeks, end-of-file, resume start, external subtitles on a Unicode path, no subtitle leak across rapid switches, legacy encoding, broken files, partial download, 100-switch memory growth |
 
 CI also runs the suite under AddressSanitizer + UndefinedBehaviorSanitizer on Linux.
@@ -26,6 +27,11 @@ Record OS, desktop/compositor, GPU and driver. Use your own clips or `tests/fixt
 
 **Opening**
 - [ ] Double-click a video in the file manager / "Open With → Chobi" plays it
+- [ ] With Chobi playing (also minimized, or behind a maximized file manager), double-click
+      another video: it plays in the same window, which comes to the front; no second window;
+      the first video resumes where it was when reopened
+- [ ] Open Chobi from the app menu while it is running: the existing window comes forward
+- [ ] `chobi --new-window file.mkv` opens a second window
 - [ ] `chobi "path with spaces/ছবি ✓.mkv"` plays
 - [ ] Drag a video from the file manager onto the window: it plays
 - [ ] Drag a second video while playing: switches cleanly, old position remembered
@@ -36,7 +42,8 @@ Record OS, desktop/compositor, GPU and driver. Use your own clips or `tests/fixt
 - [ ] →/← seek exactly 5 s; at the start/end they stop at the boundary
 - [ ] ↑/↓ change volume by 5; never above 100 or below 0
 - [ ] Space toggles play/pause; holding it does not flicker
-- [ ] Esc while playing fullscreen: pauses, leaves fullscreen, minimizes; app still running
+- [ ] Backspace while playing fullscreen: pauses, leaves fullscreen, minimizes; app still running
+- [ ] Esc closes the player; reopening the video continues from the same spot
 - [ ] F toggles fullscreen; M mutes; S toggles subtitles; A cycles audio tracks (OSD shows the name)
 - [ ] Ctrl+Q quits; plain Q does nothing
 - [ ] With the audio or subtitle menu open, arrow keys move in the menu, not the video
@@ -66,3 +73,8 @@ Record OS, desktop/compositor, GPU and driver. Use your own clips or `tests/fixt
 - [ ] Controls auto-hide after about 2.5 s of playback without mouse movement, cursor hides; any mouse
       movement brings them back; paused = always visible
 - [ ] "Loading…" only appears for slow opens (network/slow disk), never as a flash
+- [ ] Press and drag on the picture moves the window (windowed and maximized); a click or a
+      double-click (fullscreen) does not move it; dragging on the control bar does not move it
+- [ ] Control bar icons (play/pause, volume, audio, subtitles, fullscreen, settings) are clearly
+      visible with both light and dark desktop themes, and sharp at 100 % and 200 % scaling
+- [ ] Time left counts down, and played + left always equals the total

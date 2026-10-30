@@ -11,6 +11,7 @@
 #include <QDropEvent>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
@@ -19,11 +20,13 @@
 #include <QProcess>
 #include <QThreadPool>
 #include <QWheelEvent>
+#include <QWindow>
 
 #include "app/ControlsBar.h"
 #include "app/MediaPath.h"
 #include "app/ResumeService.h"
 #include "app/SettingsDialog.h"
+#include "app/SingleInstance.h"
 #include "app/UpdateBar.h"
 #include "app/Updater.h"
 #include "core/Language.h"
@@ -51,6 +54,7 @@ core::Key toCoreKey(int key) {
     case Qt::Key_Down: return core::Key::Down;
     case Qt::Key_Space: return core::Key::Space;
     case Qt::Key_Escape: return core::Key::Escape;
+    case Qt::Key_Backspace: return core::Key::Backspace;
     case Qt::Key_A: return core::Key::A;
     case Qt::Key_F: return core::Key::F;
     case Qt::Key_M: return core::Key::M;
@@ -96,7 +100,8 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services ser
       settings_(services.settings),
       preferredLanguages_(std::move(services.preferredLanguages)),
       controller_(*engine, *this),
-      updater_(services.updater) {
+      updater_(services.updater),
+      instance_(services.instance) {
   setWindowTitle(QStringLiteral("Chobi"));
   setAcceptDrops(true);
   setFocusPolicy(Qt::StrongFocus);
@@ -161,6 +166,11 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services ser
 
   connectEngine();
   connectUpdater();
+  if (instance_) {
+    connect(instance_, &InstanceServer::openRequested, this, [this](const OpenRequest& r) {
+      openFromAnotherLaunch(r.location, r.activationToken);
+    });
+  }
   setCenterText(idleHint());
   resize(960, 540);
 }
@@ -261,7 +271,12 @@ void MainWindow::restartIntoUpdate(const QString& executable) {
   sessionSaved_ = true;
   QStringList args;
   if (!currentLocation_.isEmpty()) args << QStringLiteral("--") << currentLocation_;
-  if (QProcess::startDetached(executable, args)) close();
+  if (instance_) instance_->close();  // the new process must not hand its video back to us
+  if (QProcess::startDetached(executable, args)) {
+    close();
+  } else if (instance_) {
+    instance_->listen();
+  }
 }
 
 void MainWindow::quitForInstaller() {
@@ -518,6 +533,19 @@ void MainWindow::openSettings() {
   if (dialog.exec() == QDialog::Accepted) applySettings(dialog.settings(settings_));
 }
 
+void MainWindow::openFromAnotherLaunch(const QString& location, const QByteArray& activationToken) {
+  if (!location.isEmpty()) openLocation(location);
+  // Wayland compositors only let a window come forward with the token the launcher gave the
+  // new process. Qt Wayland uses (and clears) XDG_ACTIVATION_TOKEN on the next activation.
+  if (!activationToken.isEmpty() && QGuiApplication::platformName() == QLatin1String("wayland")) {
+    qputenv("XDG_ACTIVATION_TOKEN", activationToken);
+  }
+  if (isMinimized()) setWindowState(windowState() & ~Qt::WindowMinimized);
+  show();
+  raise();
+  activateWindow();
+}
+
 bool MainWindow::isFullscreen() const { return isFullScreen(); }
 
 void MainWindow::setFullscreen(bool fullscreen) {
@@ -633,9 +661,32 @@ void MainWindow::dropEvent(QDropEvent* event) {
   activateWindow();
 }
 
+void MainWindow::mousePressEvent(QMouseEvent* event) {
+  // Presses the video surface ignores land here. Controls and the update bar keep theirs.
+  QWidget* hit = childAt(event->position().toPoint());
+  if (event->button() == Qt::LeftButton && !isFullScreen() && (!hit || hit == video_)) {
+    dragPending_ = true;
+    dragStart_ = event->globalPosition().toPoint();
+  }
+  QWidget::mousePressEvent(event);
+}
+
 void MainWindow::mouseMoveEvent(QMouseEvent* event) {
   showControls();
+  // Dragging the picture moves the window like its title bar does. The threshold keeps
+  // clicks and double-clicks (fullscreen) from turning into moves.
+  if (dragPending_ && event->buttons().testFlag(Qt::LeftButton) &&
+      (event->globalPosition().toPoint() - dragStart_).manhattanLength() >=
+          QApplication::startDragDistance()) {
+    dragPending_ = false;
+    if (QWindow* handle = windowHandle()) handle->startSystemMove();
+  }
   QWidget::mouseMoveEvent(event);
+}
+
+void MainWindow::mouseReleaseEvent(QMouseEvent* event) {
+  dragPending_ = false;
+  QWidget::mouseReleaseEvent(event);
 }
 
 void MainWindow::mouseDoubleClickEvent(QMouseEvent* event) {

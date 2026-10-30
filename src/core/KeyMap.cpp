@@ -22,7 +22,8 @@ Action actionForKey(Key key, KeyModifiers m) {
     case Key::Up: return Action::VolumeUp;
     case Key::Down: return Action::VolumeDown;
     case Key::Space: return Action::TogglePause;
-    case Key::Escape: return Action::PauseAndMinimize;
+    case Key::Escape: return Action::Quit;
+    case Key::Backspace: return Action::PauseAndMinimize;
     case Key::F: return Action::ToggleFullscreen;
     case Key::M: return Action::ToggleMute;
     case Key::S: return Action::ToggleSubtitles;

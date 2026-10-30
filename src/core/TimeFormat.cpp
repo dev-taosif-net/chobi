@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "core/TimeFormat.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -20,6 +21,13 @@ std::string formatTime(double seconds, bool forceHours) {
     std::snprintf(buf, sizeof buf, "%lld:%02lld", m, s);
   }
   return buf;
+}
+
+std::string formatRemaining(double position, double duration, bool forceHours) {
+  if (!std::isfinite(position) || position < 0) position = 0;
+  if (!std::isfinite(duration) || duration < 0) duration = 0;
+  const double left = std::max(0.0, std::floor(duration) - std::floor(position));
+  return "\u2212" + formatTime(left, forceHours);
 }
 
 }  // namespace chobi::core

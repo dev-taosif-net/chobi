@@ -149,7 +149,7 @@ class PlaybackControllerTest : public QObject {
     QCOMPARE(engine.s.volume, 0.0);
   }
 
-  void escapePausesThenLeavesFullscreenThenMinimizes() {
+  void backspacePausesThenLeavesFullscreenThenMinimizes() {
     PlaybackController c(engine, window);
     engine.s.paused = false;
     window.fullscreen = true;
@@ -159,7 +159,7 @@ class PlaybackControllerTest : public QObject {
     QVERIFY(engine.s.paused);
   }
 
-  void escapeWindowedJustMinimizes() {
+  void backspaceWindowedJustMinimizes() {
     PlaybackController c(engine, window);
     c.trigger(Action::PauseAndMinimize);
     QCOMPARE(window.log, (std::vector<std::string>{"minimize"}));

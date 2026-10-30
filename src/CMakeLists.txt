@@ -22,6 +22,7 @@ add_library(chobi_app STATIC
   engine/MpvVideoWidget.cpp
   app/Bench.cpp
   app/ControlsBar.cpp
+  app/Icons.cpp
   app/MainWindow.cpp
   app/MediaPath.cpp
   app/MediaProbe.cpp
@@ -29,6 +30,7 @@ add_library(chobi_app STATIC
   app/SeekSlider.cpp
   app/Settings.cpp
   app/SettingsDialog.cpp
+  app/SingleInstance.cpp
   app/UpdateBar.cpp
   app/UpdateManifest.cpp
   app/Updater.cpp

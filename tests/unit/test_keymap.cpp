@@ -21,7 +21,8 @@ class KeyMapTest : public QObject {
     QTest::newRow("Up") << Key::Up << false << Action::VolumeUp;
     QTest::newRow("Down") << Key::Down << false << Action::VolumeDown;
     QTest::newRow("Space") << Key::Space << false << Action::TogglePause;
-    QTest::newRow("Esc") << Key::Escape << false << Action::PauseAndMinimize;
+    QTest::newRow("Esc") << Key::Escape << false << Action::Quit;
+    QTest::newRow("Backspace") << Key::Backspace << false << Action::PauseAndMinimize;
     QTest::newRow("F") << Key::F << false << Action::ToggleFullscreen;
     QTest::newRow("M") << Key::M << false << Action::ToggleMute;
     QTest::newRow("S") << Key::S << false << Action::ToggleSubtitles;
@@ -40,11 +41,11 @@ class KeyMapTest : public QObject {
     QCOMPARE(actionForKey(key, m), expected);
   }
 
-  void escapeNeverQuits() {
+  void backspaceNeverQuits() {
     for (bool ctrl : {false, true}) {
       for (bool shift : {false, true}) {
         KeyModifiers m{ctrl, shift, false, false};
-        QVERIFY(actionForKey(Key::Escape, m) != Action::Quit);
+        QVERIFY(actionForKey(Key::Backspace, m) != Action::Quit);
       }
     }
   }

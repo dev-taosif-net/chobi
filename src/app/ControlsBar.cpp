@@ -9,14 +9,16 @@
 #include <QMenu>
 #include <QSignalBlocker>
 #include <QSlider>
-#include <QStyle>
 #include <QToolButton>
 
+#include "app/Icons.h"
 #include "app/SeekSlider.h"
 #include "core/TimeFormat.h"
 
 namespace chobi {
 namespace {
+
+QIcon icon(Glyph glyph) { return glyphIcon(glyph, QColor(0xf2, 0xf2, 0xf2)); }  // the text colour
 
 QToolButton* makeButton(QWidget* parent, const QString& tip) {
   auto* b = new QToolButton(parent);
@@ -24,6 +26,15 @@ QToolButton* makeButton(QWidget* parent, const QString& tip) {
   b->setAutoRaise(true);
   b->setToolTip(tip);
   return b;
+}
+
+// The text with every digit as '0'. Digits share one width in practically every UI font, so
+// this measures the widest a time label gets for a given duration.
+int reservedWidth(const QLabel* label, QString text) {
+  for (QChar& c : text) {
+    if (c.isDigit()) c = QLatin1Char('0');
+  }
+  return label->fontMetrics().horizontalAdvance(text);
 }
 
 QString speedText(double speed) {
@@ -37,28 +48,34 @@ ControlsBar::ControlsBar(QWidget* parent) : QWidget(parent) {
   setObjectName(QStringLiteral("ControlsBar"));
   setStyleSheet(QStringLiteral(
       "#ControlsBar { background: rgba(16, 16, 16, 210); }"
-      "#ControlsBar QLabel, #ControlsBar QToolButton { color: #f2f2f2; }"));
+      "#ControlsBar QLabel, #ControlsBar QToolButton { color: #f2f2f2; }"
+      "#ControlsBar QToolButton::menu-indicator { image: none; width: 0; }"));
 
   playButton_ = makeButton(this, tr("Play/Pause (Space)"));
   positionLabel_ = new QLabel(this);
+  positionLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  positionLabel_->setToolTip(tr("Time played"));
   seekSlider_ = new SeekSlider(this);
-  durationLabel_ = new QLabel(this);
+  remainingLabel_ = new QLabel(this);
+  remainingLabel_->setToolTip(tr("Time left / total length"));
   muteButton_ = makeButton(this, tr("Mute (M)"));
   volumeSlider_ = new QSlider(Qt::Horizontal, this);
   volumeSlider_->setFocusPolicy(Qt::NoFocus);
   volumeSlider_->setRange(0, 100);
   volumeSlider_->setFixedWidth(90);
   audioButton_ = makeButton(this, tr("Audio track (A)"));
-  audioButton_->setText(tr("Audio"));
+  audioButton_->setIcon(icon(Glyph::AudioTrack));
+  audioButton_->setAccessibleName(tr("Audio track"));
   audioButton_->setPopupMode(QToolButton::InstantPopup);
   subtitleButton_ = makeButton(this, tr("Subtitles (S)"));
-  subtitleButton_->setText(tr("Subtitles"));
+  subtitleButton_->setIcon(icon(Glyph::Subtitles));
+  subtitleButton_->setAccessibleName(tr("Subtitles"));
   subtitleButton_->setPopupMode(QToolButton::InstantPopup);
   speedButton_ = makeButton(this, tr("Playback speed"));
   speedButton_->setPopupMode(QToolButton::InstantPopup);
   fullscreenButton_ = makeButton(this, tr("Fullscreen (F)"));
   settingsButton_ = makeButton(this, tr("Settings"));
-  settingsButton_->setText(QString(QChar(0x2699)));  // ⚙
+  settingsButton_->setIcon(icon(Glyph::Settings));
 
   auto* layout = new QHBoxLayout(this);
   layout->setContentsMargins(8, 4, 8, 4);
@@ -66,7 +83,7 @@ ControlsBar::ControlsBar(QWidget* parent) : QWidget(parent) {
   layout->addWidget(playButton_);
   layout->addWidget(positionLabel_);
   layout->addWidget(seekSlider_, 1);
-  layout->addWidget(durationLabel_);
+  layout->addWidget(remainingLabel_);
   layout->addSpacing(6);
   layout->addWidget(muteButton_);
   layout->addWidget(volumeSlider_);
@@ -99,7 +116,7 @@ void ControlsBar::setMenus(QMenu* audio, QMenu* subtitles, QMenu* speed) {
 }
 
 void ControlsBar::setPaused(bool paused) {
-  playButton_->setIcon(style()->standardIcon(paused ? QStyle::SP_MediaPlay : QStyle::SP_MediaPause));
+  playButton_->setIcon(icon(paused ? Glyph::Play : Glyph::Pause));
 }
 
 void ControlsBar::setPosition(double seconds) {
@@ -112,8 +129,12 @@ void ControlsBar::setDuration(double seconds) {
   duration_ = seconds;
   seekSlider_->setDuration(seconds);
   shownSecond_ = -1;
-  durationLabel_->setText(QString::fromStdString(core::formatTime(seconds)));
   updateTimeLabels();
+  // Reserve the widest text up front (the times at the start or end of the video), so the
+  // seek bar doesn't shift when e.g. 10:00 becomes 9:59.
+  const QString widest = QString::fromStdString(core::formatTime(seconds, seconds >= 3600));
+  positionLabel_->setMinimumWidth(reservedWidth(positionLabel_, widest));
+  remainingLabel_->setMinimumWidth(reservedWidth(remainingLabel_, remainingText(0)));
 }
 
 void ControlsBar::updateTimeLabels() {
@@ -121,6 +142,14 @@ void ControlsBar::updateTimeLabels() {
   if (second == shownSecond_) return;  // text changes at most once per second
   shownSecond_ = second;
   positionLabel_->setText(QString::fromStdString(core::formatTime(position_, duration_ >= 3600)));
+  remainingLabel_->setText(remainingText(position_));
+}
+
+QString ControlsBar::remainingText(double position) const {
+  const std::string total = core::formatTime(duration_);
+  if (duration_ <= 0) return QString::fromStdString(total);  // unknown length, e.g. a live stream
+  return QString::fromStdString(core::formatRemaining(position, duration_, duration_ >= 3600) +
+                                " / " + total);
 }
 
 void ControlsBar::setVolume(double volume) {
@@ -129,15 +158,13 @@ void ControlsBar::setVolume(double volume) {
 }
 
 void ControlsBar::setMuted(bool muted) {
-  muteButton_->setIcon(
-      style()->standardIcon(muted ? QStyle::SP_MediaVolumeMuted : QStyle::SP_MediaVolume));
+  muteButton_->setIcon(icon(muted ? Glyph::Muted : Glyph::Volume));
 }
 
 void ControlsBar::setSpeed(double speed) { speedButton_->setText(speedText(speed)); }
 
 void ControlsBar::setFullscreen(bool fullscreen) {
-  fullscreenButton_->setIcon(style()->standardIcon(
-      fullscreen ? QStyle::SP_TitleBarNormalButton : QStyle::SP_TitleBarMaxButton));
+  fullscreenButton_->setIcon(icon(fullscreen ? Glyph::ExitFullscreen : Glyph::Fullscreen));
 }
 
 bool ControlsBar::isInteracting() const {

@@ -11,7 +11,7 @@
 namespace chobi::core {
 
 // Window-management hooks the controller needs. Implemented by the main window and mocked in
-// tests, so the Esc ordering (pause -> leave fullscreen -> minimize) is verifiable headless.
+// tests, so the Backspace ordering (pause -> leave fullscreen -> minimize) is verifiable headless.
 class IWindowController {
  public:
   virtual ~IWindowController() = default;

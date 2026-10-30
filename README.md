@@ -19,6 +19,9 @@ mpv does the decoding, A/V sync and subtitle rendering, and a small native UI st
   SRT, ASS/SSA and WebVTT, Unicode (Bangla and English), automatic encoding detection.
 - Multiple audio tracks with language, codec and channel layout; switching keeps the position.
 - Drag and drop, "Open With", command-line files, paths with spaces and Unicode.
+- **One window:** a video you open while Chobi is running (double-click in the file manager,
+  "Open With", `chobi file.mkv`) plays in that window, which comes to the front; the position of
+  the video it replaces is saved. `chobi --new-window file.mkv` opens a separate window.
 - **Resume where you stopped** (on by default): every video continues from where you left it.
   A saved position is kept for 7 days after you last watched that video, and is removed as
   soon as the video file is deleted.
@@ -36,7 +39,8 @@ mpv does the decoding, A/V sync and subtitle rendering, and a small native UI st
 | → / ← | Seek forward / backward 5 seconds |
 | ↑ / ↓ | Volume up / down 5 points (0–100) |
 | Space | Play / pause |
-| Esc | Pause, leave fullscreen, then minimize (never quits) |
+| Esc | Close the player (with Resume on, the video continues from there next time) |
+| Backspace | Pause, leave fullscreen, then minimize |
 | F | Toggle fullscreen (double-click also works) |
 | M | Mute |
 | S | Subtitles on / off |
@@ -45,6 +49,10 @@ mpv does the decoding, A/V sync and subtitle rendering, and a small native UI st
 | Ctrl+Q | Quit |
 
 The mouse wheel changes the volume; right-click opens the full menu (audio, subtitles, speed).
+Press and drag anywhere on the picture to move the window.
+
+The control bar shows the time played on the left and the time left and total length on the
+right (`−1:19:38 / 1:32:12`).
 
 ## Settings
 

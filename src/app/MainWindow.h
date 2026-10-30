@@ -18,6 +18,7 @@ class QMenu;
 namespace chobi {
 
 class ControlsBar;
+class InstanceServer;
 class PlayerEngine;
 class ResumeService;
 class SettingsStore;
@@ -34,6 +35,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
     AppSettings settings;                          // as loaded at startup
     std::vector<std::string> preferredLanguages;   // subtitle preference, ISO 639-1
     Updater* updater = nullptr;                    // null or disabled: no update UI
+    InstanceServer* instance = nullptr;            // null: other launches open their own window
   };
 
   // `videoSurface` becomes a child of the window.
@@ -47,6 +49,10 @@ class MainWindow final : public QWidget, public core::IWindowController {
 
   // Path, file:// URI or network URL. Safe to call while something else is playing.
   void openLocation(const QString& location);
+
+  // A later launch (double-click in the file manager, "Open With") handed over its video:
+  // play it here (empty: nothing new to play) and bring this window to the front.
+  void openFromAnotherLaunch(const QString& location, const QByteArray& activationToken);
 
   // core::IWindowController
   bool isFullscreen() const override;
@@ -69,7 +75,9 @@ class MainWindow final : public QWidget, public core::IWindowController {
   void keyPressEvent(QKeyEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
   void dropEvent(QDropEvent* event) override;
+  void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
   void contextMenuEvent(QContextMenuEvent* event) override;
@@ -111,6 +119,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   std::vector<std::string> preferredLanguages_;
   core::PlaybackController controller_;
   Updater* updater_;
+  InstanceServer* instance_;
   UpdateBar* updateBar_ = nullptr;
 
   ControlsBar* controls_;
@@ -136,6 +145,8 @@ class MainWindow final : public QWidget, public core::IWindowController {
   QString restartPath_;  // updated AppImage waiting for "Restart now"
   bool firstFramePending_ = false;
   int wheelAccumulator_ = 0;
+  bool dragPending_ = false;  // left button went down on the picture; may become a window move
+  QPoint dragStart_;          // global position of that press
 };
 
 }  // namespace chobi

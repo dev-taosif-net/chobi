@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Drives the real MainWindow (offscreen) with a fake engine: keyboard shortcuts, Esc order,
+// Drives the real MainWindow (offscreen) with a fake engine: keyboard shortcuts, Backspace order,
 // drag-and-drop with awkward paths, external subtitle discovery, error display, and the
 // "resume where stopped" / "remember volume" settings.
 #include <QtTest>
@@ -7,6 +7,7 @@
 #include <QCheckBox>
 #include <QDir>
 #include <QFile>
+#include <QLabel>
 #include <QMimeData>
 #include <QTemporaryDir>
 #include <QThreadPool>
@@ -133,14 +134,14 @@ class MainWindowTest : public QObject {
     QTRY_VERIFY(!window->isFullscreen());
   }
 
-  void escapePausesLeavesFullscreenAndMinimizes() {
+  void backspacePausesLeavesFullscreenAndMinimizes() {
     const QString video = dir.filePath("clip3.mkv");
     touch(video);
     openAndLoad(video);
     engine->s.paused = false;
     window->setFullscreen(true);
     QTRY_VERIFY(window->isFullscreen());
-    QTest::keyClick(window, Qt::Key_Escape);
+    QTest::keyClick(window, Qt::Key_Backspace);
     QVERIFY(engine->s.paused);
     QTRY_VERIFY(!window->isFullScreen());
     QTRY_VERIFY(window->windowState().testFlag(Qt::WindowMinimized));
@@ -150,6 +151,51 @@ class MainWindowTest : public QObject {
   void ctrlQCloses() {
     QTest::keyClick(window, Qt::Key_Q, Qt::ControlModifier);
     QTRY_VERIFY(!window->isVisible());
+  }
+
+  void escapeClosesAndSavesThePosition() {
+    const QString video = dir.filePath("clip4.mkv");
+    touch(video);
+    openAndLoad(video, 600);
+    engine->s.position = 120;
+    QTest::keyClick(window, Qt::Key_Escape);
+    QTRY_VERIFY(!window->isVisible());
+    QThreadPool::globalInstance()->waitForDone();
+    QCOMPARE(resume->lookup(keyFor("clip4.mkv")).value_or(-1), 120.0);
+  }
+
+  void anotherLaunchPlaysHereAndComesForward() {
+    const QString first = dir.filePath("first.mp4");
+    const QString second = dir.filePath("second.mp4");
+    touch(first);
+    touch(second);
+    openAndLoad(first);
+    window->showMinimized();
+    QTRY_VERIFY(window->isMinimized());
+
+    QSignalSpy probed(window, &MainWindow::probeFinished);
+    window->openFromAnotherLaunch(second, {});
+    QVERIFY(probed.wait(5000));
+    QCOMPARE(window->currentLocation(), second);
+    QCOMPARE(QString::fromStdString(engine->opened.back().location), second);
+    QTRY_VERIFY(!window->isMinimized());
+
+    const std::size_t opens = engine->opened.size();
+    window->openFromAnotherLaunch(QString(), {});  // plain relaunch: nothing new to play
+    QCOMPARE(engine->opened.size(), opens);
+    QCOMPARE(window->currentLocation(), second);
+  }
+
+  void controlBarShowsTimeLeft() {
+    const QString video = dir.filePath("clip5.mkv");
+    touch(video);
+    openAndLoad(video, 100);
+    emit engine->positionChanged(30.4);
+    const QString minus = QString(QChar(0x2212));
+    QStringList texts;
+    for (const QLabel* label : window->findChildren<QLabel*>()) texts << label->text();
+    QVERIFY2(texts.contains(QStringLiteral("0:30")), qPrintable(texts.join(" | ")));
+    QVERIFY2(texts.contains(minus + QStringLiteral("1:10 / 1:40")), qPrintable(texts.join(" | ")));
   }
 
   void dropUnicodePathWithSpacesAndDiscoverSubtitles() {

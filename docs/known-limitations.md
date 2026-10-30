@@ -9,14 +9,21 @@
   mpv's OpenGL render API has no zero-copy D3D11 interop without ANGLE. A D3D11 render-API
   surface is planned once mpv 0.42 is released (see the ADR). Expect higher CPU use for 4K on
   Windows until then.
-- **Wayland and minimize:** Esc asks the compositor to minimize the window. GNOME and KDE honour
-  this; some compositors (e.g. Sway, tiling setups) ignore minimize requests. Playback is still
-  paused first, and the app never quits on Esc.
+- **Wayland and minimize:** Backspace asks the compositor to minimize the window. GNOME and KDE
+  honour this; some compositors (e.g. Sway, tiling setups) ignore minimize requests. Playback is
+  still paused first, and the app never quits on Backspace.
 - **Wayland, hidden windows:** when the compositor stops sending frame callbacks (window fully
   hidden on another workspace), video frames are not rendered. Audio continues and mpv may log
-  render timeouts. Esc pauses before minimizing, so the common case is unaffected.
-- One file per window; there is no playlist and no single-instance mode. "Open With" on a second
-  file opens a second window.
+  render timeouts. Backspace pauses before minimizing, so the common case is unaffected.
+- One file at a time; there is no playlist. A video opened while Chobi is running replaces the
+  current one in the same window (`--new-window` opens another window).
+- **Dragging from a maximized file manager:** clicking in the file manager brings it in front of
+  Chobi, so there may be nothing of Chobi left to drop onto, and on GNOME Wayland an app can't
+  keep itself on top. Double-click the video instead (it plays in the open Chobi window), or drag
+  it to the top-left corner and hold it over Chobi's preview until Chobi comes forward.
+- **X11 startup feedback:** handing a video to the running Chobi doesn't end the launcher's
+  "starting" feedback, so on X11 the busy cursor may show for a few seconds. Wayland is
+  unaffected.
 
 ## Rendering and formats
 
