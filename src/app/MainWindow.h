@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <QElapsedTimer>
 #include <QTimer>
 #include <QWidget>
 
@@ -61,10 +62,12 @@ class MainWindow final : public QWidget, public core::IWindowController {
   void requestOpenFile() override;
   void requestQuit() override;
   void showMessage(const std::string& text) override;
+  void showPosition() override;
 
   // Introspection for tests.
   QString currentLocation() const { return currentLocation_; }
   QString centerText() const;
+  QString osdText() const;  // "" when hidden
   bool controlsVisible() const;
   QString updateBarText() const;  // "" when hidden
 
@@ -73,6 +76,8 @@ class MainWindow final : public QWidget, public core::IWindowController {
 
  protected:
   void keyPressEvent(QKeyEvent* event) override;
+  void keyReleaseEvent(QKeyEvent* event) override;
+  void focusOutEvent(QFocusEvent* event) override;
   void dragEnterEvent(QDragEnterEvent* event) override;
   void dropEvent(QDropEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
@@ -103,6 +108,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   void showControls();
   void maybeHideControls();
   void setCenterText(const QString& text);
+  void setOsdText(const QString& text);
   void updateTitle();
   void layoutOverlays();
   int osdTop() const;
@@ -110,6 +116,8 @@ class MainWindow final : public QWidget, public core::IWindowController {
   void checkForUpdates(bool userInitiated);
   void restartIntoUpdate(const QString& executable);
   void quitForInstaller();
+  void repeatSeek();
+  void stopSeekRepeat();
 
   PlayerEngine* engine_;
   QWidget* video_;
@@ -130,7 +138,14 @@ class MainWindow final : public QWidget, public core::IWindowController {
   QMenu* speedMenu_;
   QTimer hideTimer_;
   QTimer osdTimer_;
+  bool osdFollowsPosition_ = false;
   QTimer loadingTimer_;
+  // Held ←/→ repeat on stock mpv's timing, not the desktop's (GNOME: 500 ms, then 33/s).
+  QTimer seekRepeatTimer_;
+  QElapsedTimer seekRepeatClock_;
+  core::Action seekRepeatAction_ = core::Action::None;
+  int seekRepeatKey_ = 0;
+  qint64 seekRepeatsDone_ = 0;
 
   quint64 generation_ = 0;
   QString currentLocation_;

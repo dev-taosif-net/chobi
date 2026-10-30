@@ -21,6 +21,9 @@ class IWindowController {
   virtual void requestOpenFile() = 0;
   virtual void requestQuit() = 0;
   virtual void showMessage(const std::string& text) = 0;
+  // Shows the playback position on the OSD and keeps it current until the OSD hides, like
+  // mpv's seek OSD. A keyframe seek lands past its target, so a fixed text would be wrong.
+  virtual void showPosition() = 0;
 };
 
 inline constexpr double kSeekStepSeconds = 5.0;

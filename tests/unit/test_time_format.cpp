@@ -5,6 +5,7 @@
 
 #include "core/TimeFormat.h"
 
+using chobi::core::formatPosition;
 using chobi::core::formatRemaining;
 using chobi::core::formatTime;
 
@@ -42,6 +43,13 @@ class TimeFormatTest : public QObject {
                        std::stoi(left.substr(left.find(':') + 1));
       QCOMPARE(played + rest, 100);
     }
+  }
+
+  void position() {
+    QCOMPARE(formatPosition(105, 600), std::string("1:45 / 10:00"));
+    QCOMPARE(formatPosition(105, 7200), std::string("0:01:45 / 2:00:00"));  // same width as total
+    QCOMPARE(formatPosition(105, 0), std::string("1:45"));                  // unknown duration
+    QCOMPARE(formatPosition(105, NAN), std::string("1:45"));
   }
 
   void invalidInputsAreZero() {

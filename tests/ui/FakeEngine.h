@@ -36,6 +36,7 @@ class FakeEngine final : public chobi::PlayerEngine {
     s.position = sec;
     emit positionChanged(sec);
   }
+  void seekRelative(double delta) override { seekAbsolute(s.position + delta, false); }
   void setVolume(double v) override {
     s.volume = v;
     emit volumeChanged(v);

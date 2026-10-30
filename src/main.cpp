@@ -95,6 +95,15 @@ int main(int argc, char* argv[]) {
 
   QApplication app(argc, argv);
   chobi::bench::mark("qapp-created");
+  // Qt's Wayland backend emulates swap interval 1 by blocking the GUI thread until the frame
+  // callback of the previous commit. The OSD and controls repaint in commits of their own, so
+  // after a seek the new video frame often waited one or two extra refreshes behind them.
+  // Wayland compositors never tear and show the newest buffer each refresh: commit at once.
+  // X11 keeps vsync because it can tear.
+  if (QGuiApplication::platformName().startsWith(QLatin1String("wayland"))) {
+    format.setSwapInterval(0);
+    QSurfaceFormat::setDefaultFormat(format);
+  }
   QApplication::setApplicationName(QStringLiteral("Chobi"));
   QApplication::setApplicationVersion(QStringLiteral(CHOBI_VERSION));
   QApplication::setDesktopFileName(QStringLiteral("io.github.dev_taosif_net.Chobi"));

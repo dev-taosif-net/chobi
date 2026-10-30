@@ -30,4 +30,10 @@ std::string formatRemaining(double position, double duration, bool forceHours) {
   return "\u2212" + formatTime(left, forceHours);
 }
 
+std::string formatPosition(double position, double duration) {
+  const bool hasDuration = std::isfinite(duration) && duration > 0;
+  if (!hasDuration) return formatTime(position);
+  return formatTime(position, duration >= 3600) + " / " + formatTime(duration);
+}
+
 }  // namespace chobi::core

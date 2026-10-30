@@ -8,6 +8,7 @@
 #include <QGuiApplication>
 #include <QMetaObject>
 #include <QOpenGLContext>
+#include <QWindow>
 #include <QtGui/qguiapplication_platform.h>
 
 #include "engine/MpvEngine.h"
@@ -84,14 +85,19 @@ void MpvVideoWidget::onMpvUpdate() {
   makeCurrent();
   const std::uint64_t flags = mpv_render_context_update(render_);
   if (flags & MPV_RENDER_UPDATE_FRAME) {
-    if (isVisible() && !window()->isMinimized()) {
+    const QWindow* handle = window()->windowHandle();
+    if (isVisible() && !window()->isMinimized() && handle && handle->isExposed()) {
       update();
     } else {
-      // Qt skips painting hidden widgets; consume the frame so mpv's timing doesn't stall.
+      // Qt paints nothing while the window is hidden, minimized or unexposed (Wayland: fully
+      // covered, another workspace). Consume the frame and report it presented, or mpv's VO
+      // waits 200 ms per frame for a swap that never comes: video drops to 5 fps and each
+      // seek stalls for 200-400 ms.
       int skip = 1;
       mpv_render_param params[] = {{MPV_RENDER_PARAM_SKIP_RENDERING, &skip},
                                    {MPV_RENDER_PARAM_INVALID, nullptr}};
       mpv_render_context_render(render_, params);
+      mpv_render_context_report_swap(render_);
     }
   }
   doneCurrent();

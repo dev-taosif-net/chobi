@@ -24,6 +24,8 @@ endforeach()
 chobi_add_test(test_main_window SOURCES ui/test_main_window.cpp ui/FakeEngine.h
   LIBS chobi_app LABELS ui)
 
+chobi_add_test(test_seek_slider SOURCES ui/test_seek_slider.cpp LIBS chobi_app LABELS ui)
+
 chobi_add_test(test_updater SOURCES ui/test_updater.cpp ui/FakeEngine.h
   LIBS chobi_app chobi_monocypher Qt6::Network LABELS ui)
 

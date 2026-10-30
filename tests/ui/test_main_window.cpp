@@ -111,12 +111,46 @@ class MainWindowTest : public QObject {
     emit engine->playbackRestarted();
     QTest::keyClick(window, Qt::Key_Left);
     QCOMPARE(engine->seeks.back(), 50.0);
+    QCOMPARE(window->osdText(), QStringLiteral("0:50 / 1:40"));
+    // The seek OSD follows where playback really is: keyframe seeks land past the target.
+    engine->s.position = 57.4;
+    emit engine->positionChanged(57.4);
+    QCOMPARE(window->osdText(), QStringLiteral("0:57 / 1:40"));
 
     engine->s.volume = 97;
     QTest::keyClick(window, Qt::Key_Up);
     QCOMPARE(engine->s.volume, 100.0);
+    emit engine->positionChanged(60);  // any other message stops following the position
+    QVERIFY(window->osdText().startsWith(QStringLiteral("Volume")));
     QTest::keyClick(window, Qt::Key_Down);
     QCOMPARE(engine->s.volume, 95.0);
+  }
+
+  void heldArrowRepeatsLikeMpv() {
+    // Stock mpv repeats a held key after 200 ms, 40 times a second, whatever the desktop says
+    // (GNOME: after 500 ms, 33 a second). The desktop's own repeats are ignored for seeking.
+    const QString video = dir.filePath("held.mp4");
+    touch(video);
+    openAndLoad(video, 10000);
+    engine->s.position = 1000;
+    QTest::keyPress(window, Qt::Key_Right);
+    QCOMPARE(engine->seeks.size(), std::size_t{1});
+    QKeyEvent desktopRepeat(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier, QString(), true);
+    QApplication::sendEvent(window, &desktopRepeat);
+    QTest::qWait(150);
+    QCOMPARE(engine->seeks.size(), std::size_t{1});  // still inside the 200 ms delay
+    QTest::qWait(250);
+    QTest::keyRelease(window, Qt::Key_Right);
+    const std::size_t held = engine->seeks.size();
+    QVERIFY2(held >= 5, qPrintable(QString::number(held)));
+    QTest::qWait(100);
+    QCOMPARE(engine->seeks.size(), held);  // stops on release
+
+    QTest::keyPress(window, Qt::Key_Left);
+    QFocusEvent focusOut(QEvent::FocusOut, Qt::ActiveWindowFocusReason);
+    QApplication::sendEvent(window, &focusOut);  // the release goes to another window
+    QTest::qWait(300);
+    QCOMPARE(engine->seeks.size(), held + 1);
   }
 
   void spaceMuteFullscreen() {

@@ -47,6 +47,9 @@ class IPlayerEngine {
   virtual void setPaused(bool paused) = 0;
   // exact=false seeks to the nearest keyframe (fast, used while dragging the seek bar).
   virtual void seekAbsolute(double seconds, bool exact) = 0;
+  // Stock mpv's arrow-key seek: lands on a keyframe in the seek direction, so it is instant
+  // but may overshoot the target. Repeated calls before mpv catches up add up.
+  virtual void seekRelative(double deltaSeconds) = 0;
   virtual void setVolume(double volume) = 0;
   virtual void setMuted(bool muted) = 0;
   virtual void setSpeed(double speed) = 0;

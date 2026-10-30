@@ -23,6 +23,9 @@ struct RecordingEngine : IPlayerEngine {
   void seekAbsolute(double sec, bool exact) override {
     log.push_back("seek " + std::to_string(sec) + (exact ? " exact" : " key"));
   }
+  void seekRelative(double delta) override {
+    log.push_back("seek " + std::to_string(delta) + " relative");
+  }
   void setVolume(double v) override { s.volume = v; }
   void setMuted(bool m) override { s.muted = m; }
   void setSpeed(double v) override { s.speed = v; }
@@ -54,6 +57,7 @@ struct RecordingWindow : IWindowController {
   void requestOpenFile() override { log.push_back("open-dialog"); }
   void requestQuit() override { log.push_back("quit"); }
   void showMessage(const std::string& m) override { log.push_back("msg " + m); }
+  void showPosition() override { log.push_back("position"); }
 };
 
 Track audio(std::int64_t id, bool selected, std::string lang = {}) {
@@ -94,26 +98,45 @@ class PlaybackControllerTest : public QObject {
   void seekFiveSecondsBothWays() {
     PlaybackController c(engine, window);
     c.trigger(Action::SeekForward);
-    QCOMPARE(engine.log.back(), std::string("seek 55.000000 exact"));
+    QCOMPARE(engine.log.back(), std::string("seek 5.000000 relative"));
+    QCOMPARE(window.log.back(), std::string("position"));
     c.onSeekFinished();
     engine.s.position = 55;
     c.trigger(Action::SeekBackward);
-    QCOMPARE(engine.log.back(), std::string("seek 50.000000 exact"));
+    QCOMPARE(engine.log.back(), std::string("seek -5.000000 relative"));
+  }
+
+  void arrowKeysNeverSendAnExactSeek() {
+    // An exact seek decodes from the previous keyframe up to its target: 110-350 ms per press
+    // on a movie with 10 s keyframe gaps, where stock mpv's relative seek takes about 25 ms.
+    PlaybackController c(engine, window);
+    for (Action a : {Action::SeekForward, Action::SeekBackward, Action::SeekBackward}) {
+      c.trigger(a);
+      c.onSeekFinished();
+    }
+    QCOMPARE(engine.log.size(), std::size_t{3});
+    for (const std::string& line : engine.log) {
+      QVERIFY2(line.find(" relative") != std::string::npos, line.c_str());
+    }
   }
 
   void repeatedSeeksAccumulateBeforeEngineCatchesUp() {
     PlaybackController c(engine, window);
+    engine.s.position = 88;
     c.trigger(Action::SeekForward);
     c.trigger(Action::SeekForward);
-    c.trigger(Action::SeekForward);
-    QCOMPARE(engine.log.back(), std::string("seek 65.000000 exact"));
+    c.trigger(Action::SeekForward);  // 88 + 5 + 5 is past the end: only the 2 s that are left
+    c.trigger(Action::SeekForward);  // already heading for the end: no command
+    QCOMPARE(engine.log, (std::vector<std::string>{"seek 5.000000 relative",
+                                                   "seek 5.000000 relative",
+                                                   "seek 2.000000 relative"}));
   }
 
   void seekRespectsBoundaries() {
     PlaybackController c(engine, window);
     engine.s.position = 98;
     c.trigger(Action::SeekForward);
-    QCOMPARE(engine.log.back(), std::string("seek 100.000000 exact"));
+    QCOMPARE(engine.log.back(), std::string("seek 2.000000 relative"));
     c.onSeekFinished();
     engine.s.position = 100;
     const auto before = engine.log.size();
@@ -121,7 +144,14 @@ class PlaybackControllerTest : public QObject {
     QCOMPARE(engine.log.size(), before);
     engine.s.position = 3;
     c.trigger(Action::SeekBackward);
-    QCOMPARE(engine.log.back(), std::string("seek 0.000000 exact"));
+    QCOMPARE(engine.log.back(), std::string("seek -3.000000 relative"));
+  }
+
+  void seekBarStaysExact() {
+    PlaybackController c(engine, window);
+    c.seekTo(42);
+    QCOMPARE(engine.log.back(), std::string("seek 42.000000 exact"));
+    QCOMPARE(window.log.back(), std::string("position"));
   }
 
   void seekIgnoredWithoutFile() {

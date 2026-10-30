@@ -13,4 +13,7 @@ std::string formatTime(double seconds, bool forceHours = false);
 // formatTime(position) plus this always adds up to formatTime(duration).
 std::string formatRemaining(double position, double duration, bool forceHours = false);
 
+// The seek OSD text: "1:45 / 2:00:00", or just "1:45" when the duration is unknown (<= 0).
+std::string formatPosition(double position, double duration);
+
 }  // namespace chobi::core

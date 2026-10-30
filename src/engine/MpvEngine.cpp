@@ -486,6 +486,15 @@ void MpvEngine::seekAbsolute(double seconds, bool exact) {
   emit positionChanged(seconds);
 }
 
+void MpvEngine::seekRelative(double deltaSeconds) {
+  // Exactly what mpv's default `RIGHT seek 5` binding sends. With hr-seek=default a relative
+  // seek is a keyframe seek (rounded forward when seeking forward), so mpv never decodes from
+  // a keyframe up to the target. An exact seek did, which took 110-350 ms per press on a
+  // movie with 10 s keyframe gaps, against about 25 ms here.
+  const QByteArray delta = QByteArray::number(deltaSeconds, 'f', 3);
+  command({"seek", delta.constData(), "relative"});
+}
+
 void MpvEngine::setVolume(double volume) {
   if (volume != state_.volume) {
     state_.volume = volume;

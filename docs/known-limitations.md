@@ -12,9 +12,10 @@
 - **Wayland and minimize:** Backspace asks the compositor to minimize the window. GNOME and KDE
   honour this; some compositors (e.g. Sway, tiling setups) ignore minimize requests. Playback is
   still paused first, and the app never quits on Backspace.
-- **Wayland, hidden windows:** when the compositor stops sending frame callbacks (window fully
-  hidden on another workspace), video frames are not rendered. Audio continues and mpv may log
-  render timeouts. Backspace pauses before minimizing, so the common case is unaffected.
+- **Wayland, hidden windows:** while the window is minimized, fully covered or on another
+  workspace, video frames are skipped instead of drawn (audio and seeking carry on normally).
+  Qt only notices a covered window after about 100 ms, so the first frame or seek right after
+  covering it can take up to 200 ms.
 - One file at a time; there is no playlist. A video opened while Chobi is running replaces the
   current one in the same window (`--new-window` opens another window).
 - **Dragging from a maximized file manager:** clicking in the file manager brings it in front of

@@ -5,7 +5,6 @@
 #include <cmath>
 #include <vector>
 
-#include "core/TimeFormat.h"
 #include "core/TrackLabel.h"
 
 namespace chobi::core {
@@ -62,7 +61,11 @@ void PlaybackController::seekBy(double delta) {
   const double base = pendingSeek_.value_or(s.position);
   const double target = clampSeekTarget(base, delta, s.duration);
   if (std::fabs(target - base) < kEpsilon) return;  // already at a boundary
-  seekTo(target);
+  // Never an exact seek here: those decode from the previous keyframe up to the target, which
+  // made every press lag on real movies. This is what stock mpv's arrow keys do.
+  engine_.seekRelative(target - base);
+  pendingSeek_ = target;
+  window_.showPosition();
 }
 
 void PlaybackController::seekTo(double seconds) {
@@ -71,8 +74,7 @@ void PlaybackController::seekTo(double seconds) {
   const double target = clampSeekTarget(seconds, 0, s.duration);
   engine_.seekAbsolute(target, true);
   pendingSeek_ = target;
-  window_.showMessage(formatTime(target, s.duration >= 3600) +
-                      (s.duration > 0 ? " / " + formatTime(s.duration) : std::string()));
+  window_.showPosition();
 }
 
 void PlaybackController::changeVolume(double delta) {

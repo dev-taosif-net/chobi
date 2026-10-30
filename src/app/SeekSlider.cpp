@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <QApplication>
 #include <QMouseEvent>
 #include <QSignalBlocker>
 #include <QStyle>
@@ -15,10 +16,17 @@ SeekSlider::SeekSlider(QWidget* parent) : QSlider(Qt::Horizontal, parent) {
   setFocusPolicy(Qt::NoFocus);
   setRange(0, 0);
   setTracking(false);
-  connect(this, &QSlider::sliderMoved, this,
-          [this](int v) { emit seekRequested(v / 1000.0, false); });
-  connect(this, &QSlider::sliderReleased, this,
-          [this] { emit seekRequested(value() / 1000.0, true); });
+  connect(this, &QSlider::sliderMoved, this, [this](int v) {
+    // A click already seeked on press; hand jitter during it is not a drag.
+    const int moved = std::abs(pixelFor(v) - pixelFor(pressValue_));
+    if (!dragging_ && moved < QApplication::startDragDistance()) return;
+    dragging_ = true;
+    emit seekRequested(v / 1000.0, false);
+  });
+  // Like mpv's OSC, a drag ends where its last keyframe seek landed: no seek on release. An exact
+  // seek there froze the picture again while mpv decoded up to the drop point; after a plain
+  // click it restarted the exact seek the press had just started.
+  connect(this, &QSlider::sliderReleased, this, [this] { dragging_ = false; });
 }
 
 void SeekSlider::setDuration(double seconds) {
@@ -51,6 +59,8 @@ int SeekSlider::valueAt(int x) const {
 }
 
 void SeekSlider::mousePressEvent(QMouseEvent* event) {
+  dragging_ = false;
+  pressValue_ = value();
   if (event->button() == Qt::LeftButton && maximum() > 0) {
     QStyleOptionSlider opt;
     initStyleOption(&opt);
@@ -62,6 +72,7 @@ void SeekSlider::mousePressEvent(QMouseEvent* event) {
         const QSignalBlocker block(this);
         setValue(v);
       }
+      pressValue_ = v;
       emit seekRequested(v / 1000.0, true);
     }
   }

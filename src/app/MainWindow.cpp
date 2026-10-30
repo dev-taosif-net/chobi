@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "app/MainWindow.h"
 
+#include <algorithm>
+
 #include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
@@ -71,9 +73,17 @@ core::KeyModifiers toCoreModifiers(Qt::KeyboardModifiers m) {
           m.testFlag(Qt::AltModifier), m.testFlag(Qt::MetaModifier)};
 }
 
+// Stock mpv's key repeat (input-ar-delay, input-ar-rate). It ignores the desktop setting.
+constexpr int kSeekRepeatDelayMs = 200;
+constexpr int kSeekRepeatRate = 40;  // per second
+
+bool isSeek(core::Action a) {
+  return a == core::Action::SeekForward || a == core::Action::SeekBackward;
+}
+
+// Keys that follow the desktop's key repeat. Seek keys repeat on mpv's timing instead.
 bool repeatable(core::Action a) {
-  return a == core::Action::SeekForward || a == core::Action::SeekBackward ||
-         a == core::Action::VolumeUp || a == core::Action::VolumeDown;
+  return a == core::Action::VolumeUp || a == core::Action::VolumeDown;
 }
 
 QString extensionFilter(const std::vector<std::string_view>& exts) {
@@ -139,6 +149,9 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services ser
   hideTimer_.setSingleShot(true);
   hideTimer_.setInterval(kControlsHideMs);
   connect(&hideTimer_, &QTimer::timeout, this, &MainWindow::maybeHideControls);
+  seekRepeatTimer_.setSingleShot(true);
+  seekRepeatTimer_.setTimerType(Qt::PreciseTimer);
+  connect(&seekRepeatTimer_, &QTimer::timeout, this, &MainWindow::repeatSeek);
   osdTimer_.setSingleShot(true);
   osdTimer_.setInterval(kOsdMs);
   connect(&osdTimer_, &QTimer::timeout, osd_, &QLabel::hide);
@@ -184,6 +197,10 @@ MainWindow::~MainWindow() {
 
 void MainWindow::connectEngine() {
   connect(engine_, &PlayerEngine::positionChanged, controls_, &ControlsBar::setPosition);
+  connect(engine_, &PlayerEngine::positionChanged, this, [this](double seconds) {
+    if (!osdFollowsPosition_ || !osd_->isVisible()) return;
+    setOsdText(QString::fromStdString(core::formatPosition(seconds, engine_->state().duration)));
+  });
   connect(engine_, &PlayerEngine::durationChanged, controls_, &ControlsBar::setDuration);
   connect(engine_, &PlayerEngine::volumeChanged, controls_, &ControlsBar::setVolume);
   connect(engine_, &PlayerEngine::mutedChanged, controls_, &ControlsBar::setMuted);
@@ -570,15 +587,29 @@ void MainWindow::requestOpenFile() { QTimer::singleShot(0, this, &MainWindow::op
 void MainWindow::requestQuit() { close(); }
 
 void MainWindow::showMessage(const std::string& text) {
-  osd_->setText(QString::fromStdString(text));
-  osd_->adjustSize();
-  osd_->move(16, osdTop());
+  osdFollowsPosition_ = false;
+  setOsdText(QString::fromStdString(text));
   osd_->show();
   osd_->raise();
   osdTimer_.start();
 }
 
+void MainWindow::showPosition() {
+  const core::PlaybackState& s = engine_->state();
+  showMessage(core::formatPosition(s.position, s.duration));
+  osdFollowsPosition_ = true;
+}
+
+void MainWindow::setOsdText(const QString& text) {
+  if (text == osd_->text()) return;
+  osd_->setText(text);
+  osd_->adjustSize();
+  osd_->move(16, osdTop());
+}
+
 QString MainWindow::centerText() const { return center_->isVisible() ? center_->text() : QString(); }
+
+QString MainWindow::osdText() const { return osd_->isVisible() ? osd_->text() : QString(); }
 
 bool MainWindow::controlsVisible() const { return controls_->isVisible(); }
 
@@ -634,8 +665,47 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
     return;
   }
   event->accept();
-  if (event->isAutoRepeat() && !repeatable(action)) return;  // holding Space must not flicker
+  if (event->isAutoRepeat()) {
+    if (repeatable(action)) controller_.trigger(action);  // holding Space must not flicker
+    return;
+  }
+  stopSeekRepeat();  // like mpv, any other key press ends the repeat
   controller_.trigger(action);
+  if (isSeek(action)) {
+    seekRepeatAction_ = action;
+    seekRepeatKey_ = event->key();
+    seekRepeatsDone_ = 0;
+    seekRepeatClock_.start();
+    seekRepeatTimer_.start(kSeekRepeatDelayMs);
+  }
+}
+
+void MainWindow::keyReleaseEvent(QKeyEvent* event) {
+  if (!event->isAutoRepeat() && event->key() == seekRepeatKey_) stopSeekRepeat();
+  QWidget::keyReleaseEvent(event);
+}
+
+void MainWindow::focusOutEvent(QFocusEvent* event) {
+  stopSeekRepeat();  // the key release would go to another window
+  QWidget::focusOutEvent(event);
+}
+
+void MainWindow::repeatSeek() {
+  // The repeats due by now at mpv's rate, so a busy GUI thread doesn't slow holding down.
+  // A long stall drops its backlog (at most 2 extra) instead of jumping far ahead.
+  const qint64 due =
+      1 + (seekRepeatClock_.elapsed() - kSeekRepeatDelayMs) * kSeekRepeatRate / 1000;
+  for (int n = 0; seekRepeatsDone_ < due && n < 3; ++n, ++seekRepeatsDone_) {
+    controller_.trigger(seekRepeatAction_);
+  }
+  seekRepeatsDone_ = std::max(seekRepeatsDone_, due);
+  seekRepeatTimer_.start(1000 / kSeekRepeatRate);
+}
+
+void MainWindow::stopSeekRepeat() {
+  seekRepeatTimer_.stop();
+  seekRepeatAction_ = core::Action::None;
+  seekRepeatKey_ = 0;
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event) {

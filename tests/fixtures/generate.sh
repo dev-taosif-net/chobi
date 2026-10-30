@@ -13,7 +13,7 @@ out="${1:?usage: generate.sh OUTDIR}"
 mkdir -p "$out"
 cd "$out" || exit 1
 
-stamp=".generated-v2"
+stamp=".generated-v3"
 [[ -f "$stamp" ]] && exit 0
 
 ff() { ffmpeg -nostdin -hide_banner -loglevel error -y "$@"; }
@@ -33,6 +33,10 @@ SRC_A=(-f lavfi -i "sine=frequency=440:sample_rate=48000")
 # --- Tier 1: main playback clip (keyframe every second for seek tests) ---------------------
 try h264_aac.mp4 "${SRC_V[@]}" "${SRC_A[@]}" -t 12 -c:v libx264 -preset veryfast \
   -pix_fmt yuv420p -g 25 -c:a aac -b:a 96k -shortest h264_aac.mp4
+
+# --- Keyframes only at 0, 10 and 20 s, like a downloaded movie (arrow-key seek tests) -------
+try long_gop.mp4 "${SRC_V[@]}" "${SRC_A[@]}" -t 30 -c:v libx264 -preset veryfast \
+  -pix_fmt yuv420p -x264-params keyint=250:scenecut=0 -c:a aac -b:a 96k -shortest long_gop.mp4
 
 # --- Multiple audio tracks: eng stereo AAC, ben 5.1 AC-3 (titled), untagged mono Opus ------
 try multi_audio.mkv "${SRC_V[@]}" \

@@ -177,6 +177,37 @@ class MpvEngineTest : public QObject {
     }
   }
 
+  void relativeSeekIsAKeyframeSeekInTheSeekDirection() {
+    // Keyframes at 0, 10 and 20 s only. An exact seek would decode up to its target; the
+    // arrow-key seek must land on a keyframe instead, and never against the key's direction.
+    REQUIRE_FIXTURE("long_gop.mp4");
+    QVERIFY(load(fixture("long_gop.mp4"), 12.0));
+    engine->setPaused(true);
+    QTRY_VERIFY_WITH_TIMEOUT(std::fabs(engine->state().position - 12.0) < 0.05, 5000);
+
+    for (const auto& [delta, keyframe] : {std::pair{5.0, 20.0}, std::pair{-5.0, 10.0}}) {
+      QSignalSpy restarted(engine.get(), &PlayerEngine::playbackRestarted);
+      QElapsedTimer timer;
+      timer.start();
+      engine->seekRelative(delta);
+      QVERIFY(restarted.wait(5000));
+      qInfo("seek %+.0f s: frame ready after %lld ms", delta,
+            static_cast<long long>(timer.elapsed()));
+      // mpv first reports the requested target, then where playback really is.
+      QTRY_VERIFY_WITH_TIMEOUT(std::fabs(engine->state().position - keyframe) < 0.05, 2000);
+    }
+  }
+
+  void repeatedRelativeSeeksAddUp() {
+    REQUIRE_FIXTURE("long_gop.mp4");
+    QVERIFY(load(fixture("long_gop.mp4"), 2.0));
+    engine->setPaused(true);
+    QTRY_VERIFY_WITH_TIMEOUT(std::fabs(engine->state().position - 2.0) < 0.05, 5000);
+    // Sent back to back, faster than mpv can seek: 2 + 3 * 5 = 17, rounded forward to 20.
+    for (int i = 0; i < 3; ++i) engine->seekRelative(5);
+    QTRY_VERIFY_WITH_TIMEOUT(std::fabs(engine->state().position - 20.0) < 0.05, 5000);
+  }
+
   void seekToEndKeepsFileOpen() {
     REQUIRE_FIXTURE("h264_aac.mp4");
     QVERIFY(load(fixture("h264_aac.mp4")));

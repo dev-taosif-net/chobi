@@ -5,8 +5,8 @@
 
 namespace chobi {
 
-// Progress bar in milliseconds. Click anywhere to jump, drag for keyframe-fast scrubbing,
-// release for an exact seek. Repaints only when the handle moves by at least one pixel.
+// Progress bar in milliseconds. Click anywhere for an exact jump, drag for keyframe-fast
+// scrubbing, as mpv's OSC does. Repaints only when the handle moves by at least one pixel.
 class SeekSlider final : public QSlider {
   Q_OBJECT
 
@@ -25,6 +25,9 @@ class SeekSlider final : public QSlider {
  private:
   int pixelFor(int value) const;
   int valueAt(int x) const;
+
+  int pressValue_ = 0;     // where the last press put the handle
+  bool dragging_ = false;  // moved past the drag threshold since that press
 };
 
 }  // namespace chobi

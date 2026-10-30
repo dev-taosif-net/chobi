@@ -43,6 +43,7 @@ class MpvEngine final : public PlayerEngine {
   void stop() override;
   void setPaused(bool paused) override;
   void seekAbsolute(double seconds, bool exact) override;
+  void seekRelative(double deltaSeconds) override;
   void setVolume(double volume) override;
   void setMuted(bool muted) override;
   void setSpeed(double speed) override;

@@ -62,6 +62,41 @@ Shell overhead versus stock mpv: **+6 to +8 MB PSS, −4.4 to +1.7 % CPU** (budg
 | Exact seek, command → frame ready | 0–8 ms |
 | Audio-track switch (mpv confirms new track while playing) | 252 ms |
 
+### 5-second skip on a real movie (2026-10-30)
+
+1080p H.264 WEB-DL, keyframes up to 10 s apart. 15 forward skips each, command → first frame
+ready, headless engine (software decoding, `ao=null`), compared with stock mpv 0.41 using the same
+options over JSON IPC.
+
+| Seek | Median | Worst | Lands |
+|---|---|---|---|
+| Old Chobi: `absolute+exact` | 140 ms | 329 ms | exactly +5 s |
+| **Chobi now: `seek 5 relative`** | **36 ms** | **55 ms** | next keyframe, +5 to +12 s |
+| Stock mpv arrow key, same options | 41 ms | 48 ms | next keyframe, +5 to +12 s |
+| `absolute+keyframes` (rejected) | 23 ms | 34 ms | −0.4 to +2.3 s: a forward skip can go back |
+
+The 12 s test clip above has a keyframe every second, which is why exact seeks looked free there.
+
+In the real window (Wayland, VA-API, same movie), key press to the new frame handed to the
+compositor, interleaved with stock mpv (`--no-config --hwdec=vaapi`), median / worst:
+
+| | Paused | Playing |
+|---|---|---|
+| Chobi, swap interval 1 (before) | 13 / 34 ms | 16 / 39 ms |
+| **Chobi, swap interval 0 on Wayland** | **13 / 16 ms** | **15 / 31 ms** |
+| Stock mpv (gpu-next or gpu) | 8 / 11 ms | 34 / 44 ms |
+
+With swap interval 1, Qt Wayland blocks the GUI thread (also mpv's render thread) in every swap
+until the compositor's frame callback, so the OSD's repaint after a skip could push the video
+frame back a refresh. While playing, Chobi is quicker than mpv because of `video-timing-offset=0`:
+mpv draws frames up to 50 ms ahead and a skip waits for that one. Swap interval 0 left 24p
+playback unchanged (0 drops, judder within noise, same CPU) and at 60p fewer frames were dropped
+and A/V sync got tighter. Its one cost: dragging the seek bar repaints unthrottled (about 130
+commits/s, ~80 % of a core while the button is held).
+
+Holding → for 3 s (GNOME repeat 500 ms / 33 Hz): 77 seeks before, 114 with mpv-style repeat
+(200 ms / 40 Hz); stock mpv sends 113.
+
 ### Misses and explanations
 
 - **Idle memory target (< 80 MB) missed: 186 MB RSS / 131 MB PSS.** Breakdown of the idle process:
