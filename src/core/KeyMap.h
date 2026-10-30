@@ -3,7 +3,23 @@
 
 namespace chobi::core {
 
-enum class Key { Unknown, Left, Right, Up, Down, Space, Escape, Backspace, A, F, M, O, Q, S };
+enum class Key {
+  Unknown,
+  Left,
+  Right,
+  Up,
+  Down,
+  Space,
+  Enter,
+  Escape,
+  Backspace,
+  A,
+  F,
+  M,
+  O,
+  Q,
+  S,
+};
 
 struct KeyModifiers {
   bool ctrl = false;

@@ -24,7 +24,8 @@ Action actionForKey(Key key, KeyModifiers m) {
     case Key::Space: return Action::TogglePause;
     case Key::Escape: return Action::Quit;
     case Key::Backspace: return Action::PauseAndMinimize;
-    case Key::F: return Action::ToggleFullscreen;
+    case Key::F:
+    case Key::Enter: return Action::ToggleFullscreen;
     case Key::M: return Action::ToggleMute;
     case Key::S: return Action::ToggleSubtitles;
     case Key::A: return Action::CycleAudioTrack;

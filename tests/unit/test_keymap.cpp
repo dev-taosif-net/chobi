@@ -24,6 +24,7 @@ class KeyMapTest : public QObject {
     QTest::newRow("Esc") << Key::Escape << false << Action::Quit;
     QTest::newRow("Backspace") << Key::Backspace << false << Action::PauseAndMinimize;
     QTest::newRow("F") << Key::F << false << Action::ToggleFullscreen;
+    QTest::newRow("Enter") << Key::Enter << false << Action::ToggleFullscreen;
     QTest::newRow("M") << Key::M << false << Action::ToggleMute;
     QTest::newRow("S") << Key::S << false << Action::ToggleSubtitles;
     QTest::newRow("A") << Key::A << false << Action::CycleAudioTrack;

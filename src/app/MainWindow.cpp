@@ -29,6 +29,7 @@
 #include "app/ResumeService.h"
 #include "app/SettingsDialog.h"
 #include "app/SingleInstance.h"
+#include "app/TitleBar.h"
 #include "app/UpdateBar.h"
 #include "app/Updater.h"
 #include "core/Language.h"
@@ -55,6 +56,8 @@ core::Key toCoreKey(int key) {
     case Qt::Key_Up: return core::Key::Up;
     case Qt::Key_Down: return core::Key::Down;
     case Qt::Key_Space: return core::Key::Space;
+    case Qt::Key_Return:
+    case Qt::Key_Enter: return core::Key::Enter;  // main and numpad Enter
     case Qt::Key_Escape: return core::Key::Escape;
     case Qt::Key_Backspace: return core::Key::Backspace;
     case Qt::Key_A: return core::Key::A;
@@ -127,6 +130,9 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services ser
   video_->setMouseTracking(true);
 
   controls_ = new ControlsBar(this);
+  titleBar_ = new TitleBar(this);
+  titleBar_->setTitle(windowTitle());
+  titleBar_->hide();
 
   osd_ = new QLabel(this);
   osd_->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -175,6 +181,10 @@ MainWindow::MainWindow(PlayerEngine* engine, QWidget* videoSurface, Services ser
   connect(controls_, &ControlsBar::fullscreenClicked, this,
           [this] { controller_.toggleFullscreen(); });
   connect(controls_, &ControlsBar::settingsClicked, this, &MainWindow::openSettings);
+  connect(titleBar_, &TitleBar::minimizeClicked, this, &MainWindow::minimize);
+  connect(titleBar_, &TitleBar::exitFullscreenClicked, this,
+          [this] { controller_.toggleFullscreen(); });
+  connect(titleBar_, &TitleBar::closeClicked, this, &MainWindow::close);
   controls_->setVolume(engine_->state().volume);  // e.g. the remembered volume
 
   connectEngine();
@@ -613,6 +623,8 @@ QString MainWindow::osdText() const { return osd_->isVisible() ? osd_->text() : 
 
 bool MainWindow::controlsVisible() const { return controls_->isVisible(); }
 
+bool MainWindow::titleBarVisible() const { return titleBar_->isVisible(); }
+
 void MainWindow::setCenterText(const QString& text) {
   center_->setText(text);
   center_->setVisible(!text.isEmpty());
@@ -622,11 +634,13 @@ void MainWindow::updateTitle() {
   QString title = QString::fromStdString(engine_->state().mediaTitle);
   if (title.isEmpty()) title = displayName_;
   setWindowTitle(title.isEmpty() ? QStringLiteral("Chobi") : title + QStringLiteral(" — Chobi"));
+  titleBar_->setTitle(title.isEmpty() ? QStringLiteral("Chobi") : title);
 }
 
 void MainWindow::showControls() {
   controls_->show();
   controls_->raise();
+  if (isFullScreen()) setTitleBarVisible(true);
   video_->unsetCursor();
   unsetCursor();
   if (!engine_->state().paused && engine_->state().loaded) hideTimer_.start();
@@ -635,13 +649,22 @@ void MainWindow::showControls() {
 void MainWindow::maybeHideControls() {
   const core::PlaybackState& s = engine_->state();
   if (!s.loaded || s.paused) return;
-  if (controls_->underMouse() || controls_->isInteracting() || QApplication::activePopupWidget()) {
+  if (controls_->underMouse() || titleBar_->underMouse() || controls_->isInteracting() ||
+      QApplication::activePopupWidget()) {
     hideTimer_.start();
     return;
   }
   controls_->hide();
+  setTitleBarVisible(false);
   video_->setCursor(Qt::BlankCursor);
   setCursor(Qt::BlankCursor);
+}
+
+void MainWindow::setTitleBarVisible(bool visible) {
+  if (titleBar_->isHidden() == !visible) return;
+  titleBar_->setVisible(visible);
+  if (visible) titleBar_->raise();
+  layoutOverlays();  // the OSD moves below the title bar while it is shown
 }
 
 void MainWindow::layoutOverlays() {
@@ -649,12 +672,16 @@ void MainWindow::layoutOverlays() {
   const int barHeight = controls_->sizeHint().height();
   controls_->setGeometry(0, height() - barHeight, width(), barHeight);
   center_->setGeometry(rect().adjusted(32, 32, -32, -32 - barHeight));
+  const int updateBarHeight =
+      updateBar_ && updateBar_->isVisible() ? updateBar_->sizeHint().height() : 0;
   if (updateBar_) updateBar_->setGeometry(0, 0, width(), updateBar_->sizeHint().height());
+  titleBar_->setGeometry(0, updateBarHeight, width(), titleBar_->sizeHint().height());
   osd_->move(16, osdTop());
 }
 
 int MainWindow::osdTop() const {
-  return 16 + (updateBar_ && updateBar_->isVisible() ? updateBar_->height() : 0);
+  return 16 + (updateBar_ && updateBar_->isVisible() ? updateBar_->height() : 0) +
+         (titleBar_->isVisible() ? titleBar_->height() : 0);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event) {
@@ -805,7 +832,10 @@ void MainWindow::resizeEvent(QResizeEvent* event) {
 }
 
 void MainWindow::changeEvent(QEvent* event) {
-  if (event->type() == QEvent::WindowStateChange) controls_->setFullscreen(isFullScreen());
+  if (event->type() == QEvent::WindowStateChange) {
+    controls_->setFullscreen(isFullScreen());
+    setTitleBarVisible(isFullScreen() && controls_->isVisible());
+  }
   QWidget::changeEvent(event);
 }
 

@@ -41,7 +41,7 @@ mpv does the decoding, A/V sync and subtitle rendering, and a small native UI st
 | Space | Play / pause |
 | Esc | Close the player (with Resume on, the video continues from there next time) |
 | Backspace | Pause, leave fullscreen, then minimize |
-| F | Toggle fullscreen (double-click also works) |
+| F, Enter | Toggle fullscreen (double-click also works) |
 | M | Mute |
 | S | Subtitles on / off |
 | A | Next audio track |

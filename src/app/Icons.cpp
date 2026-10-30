@@ -119,6 +119,15 @@ void drawGlyph(QPainter* p, Glyph glyph, const QColor& color) {
     case Glyph::Fullscreen: drawCorners(p, color, false); break;
     case Glyph::ExitFullscreen: drawCorners(p, color, true); break;
     case Glyph::Settings: drawGear(p, color); break;
+    case Glyph::Minimize:
+      usePen(p, color);
+      p->drawLine(QPointF(5, 12), QPointF(19, 12));
+      break;
+    case Glyph::Close:
+      usePen(p, color);
+      p->drawLine(QPointF(6, 6), QPointF(18, 18));
+      p->drawLine(QPointF(18, 6), QPointF(6, 18));
+      break;
   }
 }
 

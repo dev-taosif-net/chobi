@@ -44,7 +44,7 @@ Record OS, desktop/compositor, GPU and driver. Use your own clips or `tests/fixt
 - [ ] Space toggles play/pause; holding it does not flicker
 - [ ] Backspace while playing fullscreen: pauses, leaves fullscreen, minimizes; app still running
 - [ ] Esc closes the player; reopening the video continues from the same spot
-- [ ] F toggles fullscreen; M mutes; S toggles subtitles; A cycles audio tracks (OSD shows the name)
+- [ ] F and Enter toggle fullscreen; M mutes; S toggles subtitles; A cycles audio tracks (OSD shows the name)
 - [ ] Ctrl+Q quits; plain Q does nothing
 - [ ] With the audio or subtitle menu open, arrow keys move in the menu, not the video
 

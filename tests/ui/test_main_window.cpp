@@ -11,6 +11,7 @@
 #include <QMimeData>
 #include <QTemporaryDir>
 #include <QThreadPool>
+#include <QToolButton>
 
 #include "FakeEngine.h"
 #include "app/MainWindow.h"
@@ -166,6 +167,20 @@ class MainWindowTest : public QObject {
     QTRY_VERIFY(window->isFullscreen());
     QTest::keyClick(window, Qt::Key_F);
     QTRY_VERIFY(!window->isFullscreen());
+    QTest::keyClick(window, Qt::Key_Return);
+    QTRY_VERIFY(window->isFullscreen());
+    QTest::keyClick(window, Qt::Key_Enter, Qt::KeypadModifier);  // numpad Enter
+    QTRY_VERIFY(!window->isFullscreen());
+  }
+
+  void leavingFullscreenRestoresMaximized() {
+    window->showMaximized();
+    QTRY_VERIFY(window->isMaximized());
+    QTest::keyClick(window, Qt::Key_Return);
+    QTRY_VERIFY(window->isFullscreen());
+    QTest::keyClick(window, Qt::Key_Return);
+    QTRY_VERIFY(!window->isFullscreen());
+    QTRY_VERIFY(window->isMaximized());
   }
 
   void backspacePausesLeavesFullscreenAndMinimizes() {
@@ -230,6 +245,27 @@ class MainWindowTest : public QObject {
     for (const QLabel* label : window->findChildren<QLabel*>()) texts << label->text();
     QVERIFY2(texts.contains(QStringLiteral("0:30")), qPrintable(texts.join(" | ")));
     QVERIFY2(texts.contains(minus + QStringLiteral("1:10 / 1:40")), qPrintable(texts.join(" | ")));
+  }
+
+  void fullscreenTitleBarShowsTheTitleAndCloses() {
+    const QString video = dir.filePath("clip6.mkv");
+    touch(video);
+    openAndLoad(video);
+    QVERIFY(window->controlsVisible());
+    QVERIFY(!window->titleBarVisible());  // windowed: the system title bar is there
+    window->setFullscreen(true);
+    QTRY_VERIFY(window->titleBarVisible());
+    QStringList texts;
+    for (const QLabel* label : window->findChildren<QLabel*>()) texts << label->text();
+    QVERIFY2(texts.contains(QStringLiteral("clip6.mkv")), qPrintable(texts.join(" | ")));
+    window->setFullscreen(false);
+    QTRY_VERIFY(!window->titleBarVisible());
+    window->setFullscreen(true);
+    QTRY_VERIFY(window->titleBarVisible());
+    auto* close = window->findChild<QToolButton*>(QStringLiteral("close"));
+    QVERIFY(close);
+    close->click();
+    QTRY_VERIFY(!window->isVisible());
   }
 
   void dropUnicodePathWithSpacesAndDiscoverSubtitles() {

@@ -16,9 +16,11 @@ enum class Glyph {
   Fullscreen,
   ExitFullscreen,
   Settings,
+  Minimize,
+  Close,
 };
 
-// The control bar's icons, drawn with QPainter at whatever size and pixel ratio they are shown
+// The control and title bars' icons, drawn with QPainter at whatever size and pixel ratio they are shown
 // at. One consistent set that stays sharp on any display and readable on the dark bar whatever
 // the desktop's icon theme, with no image files or SVG plugin. Disabled icons are drawn at
 // reduced opacity.

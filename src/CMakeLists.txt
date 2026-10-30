@@ -31,6 +31,7 @@ add_library(chobi_app STATIC
   app/Settings.cpp
   app/SettingsDialog.cpp
   app/SingleInstance.cpp
+  app/TitleBar.cpp
   app/UpdateBar.cpp
   app/UpdateManifest.cpp
   app/Updater.cpp

@@ -23,6 +23,7 @@ class InstanceServer;
 class PlayerEngine;
 class ResumeService;
 class SettingsStore;
+class TitleBar;
 class UpdateBar;
 class Updater;
 
@@ -69,6 +70,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   QString centerText() const;
   QString osdText() const;  // "" when hidden
   bool controlsVisible() const;
+  bool titleBarVisible() const;
   QString updateBarText() const;  // "" when hidden
 
  signals:
@@ -107,6 +109,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   void persistSettings();
   void showControls();
   void maybeHideControls();
+  void setTitleBarVisible(bool visible);
   void setCenterText(const QString& text);
   void setOsdText(const QString& text);
   void updateTitle();
@@ -131,6 +134,7 @@ class MainWindow final : public QWidget, public core::IWindowController {
   UpdateBar* updateBar_ = nullptr;
 
   ControlsBar* controls_;
+  TitleBar* titleBar_;  // fullscreen only
   QLabel* osd_;
   QLabel* center_;
   QMenu* audioMenu_;

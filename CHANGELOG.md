@@ -6,6 +6,17 @@ and versions follow [Semantic Versioning](https://semver.org). `scripts/release.
 
 ## [Unreleased]
 
+### Added
+- **A title bar in fullscreen.** Moving the mouse shows a bar at the top with the video's title
+  and Minimize, Exit fullscreen and Close buttons. It hides together with the control bar.
+- **Enter toggles fullscreen**, like F (the numpad Enter too). Leaving fullscreen returns the
+  window to how it was, maximized or not.
+- Settings shows who made Chobi next to the version.
+
+### Fixed
+- **Control bar buttons no longer vanish on hover.** Windows drew a light box behind the white
+  icons; hovered buttons now get a soft highlight instead.
+
 ## [0.3.0] - 2026-10-30
 
 ### Added
