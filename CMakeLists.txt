@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(Chobi
-  VERSION 0.2.0
+  VERSION 0.3.0
   DESCRIPTION "Lightweight cross-platform video player"
   HOMEPAGE_URL "https://github.com/dev-taosif-net/chobi"
   LANGUAGES C CXX)

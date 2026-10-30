@@ -6,6 +6,8 @@ and versions follow [Semantic Versioning](https://semver.org). `scripts/release.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-30
+
 ### Added
 - **Time left** on the control bar, next to the total length: `−1:19:38 / 1:32:12`. Played and
   left always add up to the total.
