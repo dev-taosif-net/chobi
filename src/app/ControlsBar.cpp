@@ -49,6 +49,11 @@ ControlsBar::ControlsBar(QWidget* parent) : QWidget(parent) {
   setStyleSheet(QStringLiteral(
       "#ControlsBar { background: rgba(16, 16, 16, 210); }"
       "#ControlsBar QLabel, #ControlsBar QToolButton { color: #f2f2f2; }"
+      // Our own hover look: the platform style's light hover panel hides the white icons.
+      "#ControlsBar QToolButton { background: transparent; border: none; border-radius: 4px;"
+      " padding: 3px; }"
+      "#ControlsBar QToolButton:hover { background: rgba(255, 255, 255, 40); }"
+      "#ControlsBar QToolButton:pressed { background: rgba(255, 255, 255, 70); }"
       "#ControlsBar QToolButton::menu-indicator { image: none; width: 0; }"));
 
   playButton_ = makeButton(this, tr("Play/Pause (Space)"));

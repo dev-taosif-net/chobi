@@ -47,7 +47,8 @@ SettingsDialog::SettingsDialog(const AppSettings& current, bool updatesAvailable
   checkNow->setObjectName(QStringLiteral("checkNow"));
   checkNow->setAutoDefault(false);
   connect(checkNow, &QPushButton::clicked, this, &SettingsDialog::checkNowRequested);
-  auto* version = new QLabel(tr("Chobi %1").arg(QStringLiteral(CHOBI_VERSION)), this);
+  auto* version = new QLabel(
+      tr("Chobi %1 · Made by Taosif Bin Murtaza").arg(QStringLiteral(CHOBI_VERSION)), this);
   version->setEnabled(false);
 
   auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
